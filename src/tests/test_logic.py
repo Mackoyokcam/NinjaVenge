@@ -136,6 +136,11 @@ class UpgradeTest(unittest.TestCase):
         self.assertEqual(full.sword_damage, 2.5)
         self.assertTrue(full.shinobi)
         self.assertFalse(loadout_from({"shinobi": 1}, {"shinobi": False}).shinobi)
+        more = loadout_from({"heavy_kunai": 3, "fleet_feet": 3, "swift_blade": 3})
+        self.assertAlmostEqual(more.stagger_mult, 1.75)
+        self.assertAlmostEqual(more.run_speed, C.PLAYER_SPEED * 1.3)
+        self.assertAlmostEqual(more.attack_cooldown, 0.0)
+        self.assertAlmostEqual(base.attack_cooldown, C.ATTACK_COOLDOWN)
 
     def test_run_earnings(self):
         from ninjavenge import config as C

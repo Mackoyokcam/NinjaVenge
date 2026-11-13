@@ -52,6 +52,7 @@ class Ninja:
         self._action_key = "attack"
         self.swing_hits = set()
         self.kunai_cd = 0.0
+        self.attack_cd = 0.0
 
         # damage
         self.invuln = 0.0
@@ -110,8 +111,12 @@ class Ninja:
         self.anims["jump"].reset()
         return True
 
+    @property
+    def attack_ready(self):
+        return self.attack_cd <= 0
+
     def try_attack(self):
-        if self.busy:
+        if self.busy or not self.attack_ready:
             return False
         self.state = State.ATTACK
         self.swing_hits = set()
@@ -145,6 +150,7 @@ class Ninja:
     def update(self, dt, world):
         self.invuln = max(0.0, self.invuln - dt)
         self.kunai_cd = max(0.0, self.kunai_cd - dt)
+        self.attack_cd = max(0.0, self.attack_cd - dt)
 
         if self.state == State.DEAD:
             self.anims["dead"].update(dt)
@@ -162,7 +168,7 @@ class Ninja:
             # sword swings root you in place; you can run while throwing and drift while hopping
             can_move = grounded_free or self.airborne or self.state == State.THROW
             if self.move_dir and can_move:
-                self.x += self.move_dir * C.PLAYER_SPEED * dt
+                self.x += self.move_dir * self.loadout.run_speed * dt
                 if grounded_free:
                     self.facing = self.move_dir
                     if not self.airborne:
@@ -181,6 +187,7 @@ class Ninja:
                 world.sword_strike(self)
             if anim.done:
                 self.state = State.IDLE
+                self.attack_cd = self.loadout.attack_cooldown
         elif self.state == State.THROW:
             anim = self.anims[self._action_key]
             anim.update(dt)

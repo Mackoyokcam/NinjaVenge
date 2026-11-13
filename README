@@ -35,6 +35,9 @@ Enemies
                  (kunai pass straight through it)
     Bosses       every 5th wave, alternating Sir Clank (knight) and Rex (dino).
                  A kunai during their "!" wind-up interrupts the attack.
+                 Sir Clank turns around and swings if you stand close behind him.
+                 After a stagger he glows gold for 1.5s: kunai glance off ("IMMUNE"),
+                 but a kunai during his wind-up still interrupts him.
                  A boss that gets through costs 3 hearts.
 
 Chain kills without losing a heart to raise the score multiplier (up to x5).
@@ -50,9 +53,12 @@ Kills earn ryo (cowboy 1, jack 2, robot 3, boss 25) and clearing wave N pays 2*N
 Ryo is banked when a run ends and spent in the Dojo Shop (main menu or game over):
     Swift Kunai       kunai fly 20% faster per level (3 levels)
     Quick Hands       kunai cooldown 20% shorter per level (3 levels)
+    Heavy Kunai       kunai staggers last 25% longer per level (3 levels)
     Sharpened Katana  +0.5 katana damage per level (3 levels)
+    Swift Blade       shorter pause between katana swings (3 levels; level 3 removes it)
+    Fleet Feet        run 10% faster per level (3 levels)
     Extra Heart       +1 max heart per level (2 levels)
-    Shinobi Mode      teleport between lanes instead of jumping (toggle on/off in the shop)
+    Shinobi Mode      smoke-bomb between lanes instead of jumping (toggle on/off in the shop)
 Progress is saved to ~/.ninjavenge/profile.json. Prices and rates live in
 ninjavenge/upgrades.py and ninjavenge/config.py.
 
@@ -78,9 +84,11 @@ Code layout (src/)
 
 Boss art
 --------
-The boss sprites are pzUH's CC0 GameArt2D packs (see CREDITS). To regenerate the
-game-sized frames from the original zips:
+The boss sprites are pzUH's CC0 GameArt2D packs; the smoke bomb uses Kenney's CC0
+smoke and dklon's CC-BY "Poof Noises" (see CREDITS). To regenerate the game files
+from the original zips:
     python tools/prepare_boss_art.py <FreeKnight/png> <FreeDinoSprite/png>
+    python tools/prepare_fx.py <smokeParticleAssets/PNG> <poofs>
 
 
 Tests

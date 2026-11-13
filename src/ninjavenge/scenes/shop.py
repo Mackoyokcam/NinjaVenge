@@ -6,8 +6,11 @@ from ..app import Scene
 from ..ui import Background, dim, draw_text
 from ..upgrades import UPGRADES
 
-ROW_W, ROW_H, ROW_GAP = 1000, 92, 14
-TOP = 175
+COLS = 2
+CARD_W, CARD_H = 680, 108
+GAP_X, GAP_Y = 24, 16
+TOP = 160
+BACK_W, BACK_H = 260, 54
 
 
 class ShopScene(Scene):
@@ -19,11 +22,16 @@ class ShopScene(Scene):
         self.profile = app.profile
         self.selected = 0
         self.message, self.message_t, self.message_color = "", 0.0, C.WHITE
+        # two-column grid of upgrade cards, then a centred Back button
         self.rows = []
-        for i in range(len(UPGRADES) + 1):  # +1 for "Back"
-            r = pygame.Rect(0, 0, ROW_W, ROW_H if i < len(UPGRADES) else 54)
-            r.midtop = (C.SCREEN_W // 2, TOP + i * (ROW_H + ROW_GAP))
-            self.rows.append(r)
+        left = (C.SCREEN_W - (COLS * CARD_W + (COLS - 1) * GAP_X)) // 2
+        for i in range(len(UPGRADES)):
+            col, row = i % COLS, i // COLS
+            self.rows.append(pygame.Rect(left + col * (CARD_W + GAP_X), TOP + row * (CARD_H + GAP_Y), CARD_W, CARD_H))
+        n_rows = (len(UPGRADES) + COLS - 1) // COLS
+        back = pygame.Rect(0, 0, BACK_W, BACK_H)
+        back.midtop = (C.SCREEN_W // 2, TOP + n_rows * (CARD_H + GAP_Y) + 4)
+        self.rows.append(back)
         pygame.mouse.set_visible(True)
 
     # ------------------------------------------------------------------ actions
@@ -50,15 +58,41 @@ class ShopScene(Scene):
     def flash(self, text, color):
         self.message, self.message_t, self.message_color = text, 2.0, color
 
+    def move(self, dx, dy):
+        """Grid navigation; the Back button sits below the last row."""
+        back = len(UPGRADES)
+        i = self.selected
+        if i == back:
+            if dy < 0:
+                self.selected = back - 1
+            elif dy > 0:
+                self.selected = 0
+            return
+        if dx:
+            col = i % COLS
+            if 0 <= col + dx < COLS and i + dx < back:
+                self.selected = i + dx
+        elif dy:
+            j = i + dy * COLS
+            if j >= back:
+                self.selected = back
+            elif j < 0:
+                self.selected = back
+            else:
+                self.selected = j
+
     def handle_event(self, event):
-        n = len(self.rows)
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_ESCAPE:
                 self.app.pop()
             elif event.key in (pygame.K_UP, pygame.K_w):
-                self.selected = (self.selected - 1) % n
+                self.move(0, -1)
             elif event.key in (pygame.K_DOWN, pygame.K_s):
-                self.selected = (self.selected + 1) % n
+                self.move(0, 1)
+            elif event.key in (pygame.K_LEFT, pygame.K_a):
+                self.move(-1, 0)
+            elif event.key in (pygame.K_RIGHT, pygame.K_d):
+                self.move(1, 0)
             elif event.key in (pygame.K_RETURN, pygame.K_KP_ENTER, pygame.K_SPACE):
                 self.activate(self.selected)
         elif event.type == pygame.MOUSEMOTION:
@@ -88,16 +122,14 @@ class ShopScene(Scene):
 
         back = self.rows[-1]
         active = self.selected == len(UPGRADES)
-        back = back.inflate(-ROW_W + 260, 0)
         pygame.draw.rect(surf, C.UI_ACCENT if active else (30, 30, 44), back, border_radius=10)
         pygame.draw.rect(surf, C.WHITE if active else (80, 80, 100), back, 2, border_radius=10)
         draw_text(surf, f_name, "Back", C.WHITE, center=back.center)
-        self.rows[-1] = back
 
         if self.message_t > 0:
             draw_text(surf, f_name, self.message, self.message_color, center=(C.SCREEN_W // 2, C.SCREEN_H - 30))
         else:
-            draw_text(surf, f_small, "Up/Down + Enter, or click. Esc to go back. Ryo is earned from kills and cleared waves.",
+            draw_text(surf, f_small, "Arrow keys + Enter, or click. Esc to go back. Ryo is earned from kills and cleared waves.",
                       C.GREY, center=(C.SCREEN_W // 2, C.SCREEN_H - 30))
 
     def _draw_row(self, surf, u, r, active, f_name, f_desc, f_small):
@@ -107,18 +139,18 @@ class ShopScene(Scene):
         pygame.draw.rect(surf, (0, 0, 0), r.move(4, 4), border_radius=12)
         pygame.draw.rect(surf, (52, 26, 40) if active else (26, 26, 38), r, border_radius=12)
         pygame.draw.rect(surf, C.UI_ACCENT if active else (70, 70, 90), r, 2, border_radius=12)
-        draw_text(surf, f_name, u.name, C.WHITE, topleft=(r.left + 24, r.top + 16))
-        draw_text(surf, f_desc, u.description, (200, 200, 210), topleft=(r.left + 24, r.top + 54))
+        draw_text(surf, f_name, u.name, C.WHITE, topleft=(r.left + 22, r.top + 18))
+        draw_text(surf, f_desc, u.description, (200, 200, 210), topleft=(r.left + 22, r.top + 64))
 
         # level pips
         for n in range(u.max_level):
             pip = pygame.Rect(0, 0, 22, 22)
-            pip.topleft = (r.left + 330 + n * 30, r.top + 18)
+            pip.topleft = (r.left + 290 + n * 30, r.top + 20)
             pygame.draw.rect(surf, C.GOLD if n < level else (60, 60, 75), pip, border_radius=4)
             pygame.draw.rect(surf, C.BLACK, pip, 1, border_radius=4)
 
         # price / status
-        right = (r.right - 24, r.centery)
+        right = (r.right - 22, r.top + 32)
         if u.toggle and maxed:
             on = p.is_enabled(u.key)
             draw_text(surf, f_name, "ON" if on else "OFF", C.CYAN if on else C.GREY, midright=right)

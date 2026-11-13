@@ -32,6 +32,27 @@ def tinted(image, color, mode):
     return surf
 
 
+_glow_cache = {}
+
+
+def glow_outline(image, color, radius=5):
+    """Cached soft outline of a sprite's silhouette, `radius` px larger on each side."""
+    key = (image, color, radius)   # keyed by the surface itself so ids can't be recycled
+    surf = _glow_cache.get(key)
+    if surf is None:
+        sil = pygame.mask.from_surface(image).to_surface(setcolor=(*color, 160), unsetcolor=(0, 0, 0, 0))
+        w, h = image.get_size()
+        surf = pygame.Surface((w + radius * 2, h + radius * 2), pygame.SRCALPHA)
+        for dx in range(-radius, radius + 1, 2):
+            for dy in range(-radius, radius + 1, 2):
+                if dx * dx + dy * dy <= radius * radius:
+                    surf.blit(sil, (radius + dx, radius + dy))
+        if len(_glow_cache) > 256:
+            _glow_cache.clear()
+        _glow_cache[key] = surf
+    return surf
+
+
 def with_alpha(image, alpha):
     surf = image.copy()
     surf.fill((255, 255, 255, max(0, min(255, int(alpha)))), special_flags=pygame.BLEND_RGBA_MULT)

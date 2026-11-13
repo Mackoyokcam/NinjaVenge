@@ -6,7 +6,7 @@ import pygame
 
 from .. import config as C
 from ..animation import Animation
-from .sprite_utils import anchored_rect, tinted, with_alpha
+from .sprite_utils import anchored_rect, glow_outline, tinted, with_alpha
 
 WALK, AIM, STAGGER, DYING, CORPSE, GONE = "walk", "aim", "stagger", "dying", "corpse", "gone"
 
@@ -140,8 +140,12 @@ class Enemy:
         rect = anchored_rect(img, self.x, self.y + self.foot_pad, self.facing, anchor)
         if self.state == STAGGER:
             rect.x += random.randint(-2, 2)
+        self.draw_underlay(surf, img, rect)
         surf.blit(img, rect)
         self.draw_overlay(surf, rect)
+
+    def draw_underlay(self, surf, img, rect):
+        """Drawn behind the sprite (auras, glows)."""
 
     def draw_overlay(self, surf, rect):
         pass
@@ -205,9 +209,14 @@ class Robot(Enemy):
     def on_projectile(self, world):
         world.sfx.play("dink")
         world.effects.sparks(self.x - self.facing * 10, self.y - 80 * self.scale, C.CYAN, 10)
-        if self.state != STAGGER and self.stagger_immune <= 0:
+        if self.stagger_immune > 0 and self.state != STAGGER:
+            # armor just recovered: the hit glances off
+            world.effects.sparks(self.x - self.facing * 10, self.y - 80 * self.scale, C.GOLD, 12)
+            world.effects.text(self.x, self.y - 150 * self.scale, "IMMUNE", C.GOLD, size=26)
+            world.emit("immune")
+        elif self.state != STAGGER:
             self.state = STAGGER
-            self.stagger_t = self.stagger_time
+            self.stagger_t = self.stagger_time * world.loadout.stagger_mult
             world.emit("stagger")
             world.effects.text(self.x, self.y - 150 * self.scale, "STAGGER", C.CYAN, size=26)
 
@@ -229,6 +238,21 @@ class Robot(Enemy):
     def touch_player(self, world, player):
         if self.state == WALK:
             world.damage_player(self.x)
+
+    @property
+    def stagger_immune_now(self):
+        return self.stagger_immune > 0 and self.state != STAGGER and self.hittable
+
+    def draw_underlay(self, surf, img, rect):
+        if not self.stagger_immune_now:
+            return
+        # pulsing gold glow = "can't be staggered right now"
+        r = 7
+        glow = glow_outline(img, (255, 200, 40), r)
+        pulse = 0.75 + 0.25 * math.sin(self.stagger_immune * 18)
+        fade = min(1.0, self.stagger_immune / 0.3)   # fades out as the immunity ends
+        glow.set_alpha(int(255 * pulse * fade))
+        surf.blit(glow, rect.move(-r, -r))
 
     def draw_overlay(self, surf, rect):
         if not self.hittable or self.max_hp <= 1:

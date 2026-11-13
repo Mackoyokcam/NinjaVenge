@@ -24,7 +24,7 @@ class World:
         self.enemies = []
         self.kunais = []
         self.bullets = []
-        self.effects = Effects(app.font)
+        self.effects = Effects(app.font, app.assets)
         self.score = ScoreKeeper()
         self.hearts = self.loadout.max_hearts
         self.kills = 0

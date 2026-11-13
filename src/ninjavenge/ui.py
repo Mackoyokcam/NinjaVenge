@@ -181,6 +181,16 @@ class Hud:
             frac = 1 - p.kunai_cd / p.loadout.kunai_cooldown
             pygame.draw.rect(surf, (50, 50, 60), (x, y + 22, 80, 5))
             pygame.draw.rect(surf, C.CYAN, (x, y + 22, int(80 * frac), 5))
+        # katana cooldown, just above the kunai
+        ky = y - 26
+        blade = C.WHITE if p.attack_ready else (110, 110, 120)
+        pygame.draw.line(surf, blade, (x + 20, ky), (x + 80, ky - 8), 3)
+        pygame.draw.line(surf, (150, 40, 50), (x, ky + 3), (x + 18, ky), 5)
+        pygame.draw.line(surf, C.GOLD, (x + 18, ky - 5), (x + 20, ky + 5), 3)
+        if not p.attack_ready and p.loadout.attack_cooldown > 0:
+            frac = 1 - p.attack_cd / p.loadout.attack_cooldown
+            pygame.draw.rect(surf, (50, 50, 60), (x, ky + 8, 80, 4))
+            pygame.draw.rect(surf, C.WHITE, (x, ky + 8, int(80 * frac), 4))
         draw_text(surf, f_small, "Arrows: move / switch lane    A: katana    S: kunai", C.GREY,
                   midleft=(130, y + 8))
 

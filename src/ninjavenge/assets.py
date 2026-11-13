@@ -107,6 +107,7 @@ SOUND_FILES = {
     "game_over": "game_over.wav",
     "ugh": "ugh.wav",
     "laugh": "laugh.ogg",
+    "smoke_bomb": "smoke_bomb.wav",
 }
 
 

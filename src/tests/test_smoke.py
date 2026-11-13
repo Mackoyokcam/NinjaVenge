@@ -330,6 +330,117 @@ class SmokeTest(unittest.TestCase):
         self.app.step(DT, [key(pygame.K_ESCAPE)])
         self.assertIsInstance(self.app.scene, GameOverScene)
 
+    # ------------------------------------------------------------ v4 features
+    def test_knight_turns_around_on_player_behind(self):
+        from ninjavenge.entities import KnightBoss
+        game, w, knight = self._game_with(KnightBoss, hp=10)   # walking left (facing -1)
+        knight.x, knight.attack_cd = w.player.x - 120, 0         # Ren is behind him
+        self.run_frames(2)
+        self.assertEqual(knight.state, "attack")
+        self.assertEqual(knight.facing, 1, "should turn to face Ren")
+        self.run_frames(70)
+        self.assertEqual(w.hearts, config.PLAYER_MAX_HEARTS - 1)
+        self.assertEqual(knight.facing, -1, "turns back to the road after swinging")
+
+    def test_staggered_knight_does_not_turn(self):
+        from ninjavenge.entities import KnightBoss
+        game, w, knight = self._game_with(KnightBoss, hp=10)
+        knight.x, knight.attack_cd = w.player.x - 120, 0
+        knight.state, knight.stagger_t = STAGGER, 5.0
+        self.run_frames(30)
+        self.assertEqual((knight.state, knight.facing), (STAGGER, -1))
+        self.assertEqual(w.hearts, config.PLAYER_MAX_HEARTS)
+
+    def test_katana_cooldown_and_swift_blade(self):
+        game, w, cb = self._game_with(Cowboy)
+        cb.x, cb.fire_cd = 1400, 99          # out of reach: no hit-stop
+        p = w.player
+        game.do_action("attack")
+        self.run_frames(int(60 * config.ATTACK_TIME) + 2)
+        self.assertFalse(p.attack_ready)
+        self.assertFalse(game.do_action("attack"), "swing must wait for the cooldown")
+        self.run_frames(int(60 * config.ATTACK_COOLDOWN) + 2)
+        self.assertTrue(game.do_action("attack"))
+        self.app.profile.levels = {"swift_blade": 3}
+        game, w, cb = self._game_with(Cowboy)
+        cb.x, cb.fire_cd = 1400, 99
+        game.do_action("attack")
+        self.run_frames(int(60 * config.ATTACK_TIME) + 2)
+        self.assertTrue(w.player.attack_ready)
+
+    def test_fleet_feet_runs_faster(self):
+        def distance():
+            game, w, _ = self._game_with(Cowboy)
+            game.read_movement = lambda: -1
+            x0 = w.player.x
+            self.run_frames(30)
+            return x0 - w.player.x
+        base = distance()
+        self.app.profile.levels = {"fleet_feet": 3}
+        self.assertAlmostEqual(distance() / base, 1.3, places=1)
+
+    def test_heavy_kunai_staggers_longer(self):
+        self.app.profile.levels = {"heavy_kunai": 2}
+        game, w, robot = self._game_with(Robot, hp=4)
+        robot.on_projectile(w)
+        self.assertAlmostEqual(robot.stagger_t, config.ROBOT_STAGGER * 1.5)
+
+    def test_shinobi_smoke_bomb_effect(self):
+        self.app.profile.levels = {"shinobi": 1}
+        game = GameScene(self.app)
+        self.app.change(game)
+        game.director = None
+        self.assertTrue(game.world.effects._smoke, "smoke sprites should load")
+        self.app.step(DT, [key(pygame.K_UP)])
+        self.assertGreaterEqual(len(game.world.effects.puffs), 20, "a smoke bomb at each lane")
+        self.run_frames(60)
+        self.assertEqual(game.world.effects.puffs, [])
+
+    def test_shop_grid_navigation(self):
+        from ninjavenge.scenes.shop import ShopScene
+        from ninjavenge.upgrades import UPGRADES
+        shop = ShopScene(self.app)
+        self.app.push(shop)
+        self.app.step(DT, [key(pygame.K_RIGHT)])
+        self.assertEqual(shop.selected, 1)
+        self.app.step(DT, [key(pygame.K_DOWN)])
+        self.assertEqual(shop.selected, 3)
+        for _ in range(3):                       # 3 -> 5 -> 7 -> Back
+            self.app.step(DT, [key(pygame.K_DOWN)])
+        self.assertEqual(shop.selected, len(UPGRADES), "bottom of the grid lands on Back")
+        self.assertTrue(all(r.bottom <= config.SCREEN_H - 40 for r in shop.rows), "shop fits on screen")
+        self.app.step(DT, [key(pygame.K_RETURN)])
+        self.assertIsNot(self.app.scene, shop)
+
+    def test_knight_stagger_immunity_is_visible_and_temporary(self):
+        from ninjavenge.entities import KnightBoss
+        game, w, knight = self._game_with(KnightBoss, hp=10)
+        knight.attack_cd = 99
+        knight.on_projectile(w)
+        self.assertEqual(knight.state, STAGGER)
+        self.assertFalse(knight.stagger_immune_now)
+        self.run_frames(int(60 * config.BOSS_STAGGER) + 3)
+        self.assertEqual(knight.state, "walk")
+        self.assertTrue(knight.stagger_immune_now, "glows right after recovering")
+        w.events.clear()
+        knight.on_projectile(w)
+        self.assertNotEqual(knight.state, STAGGER)
+        self.assertIn("immune", w.events)
+        self.run_frames(int(60 * KnightBoss.recover_time) + 3)
+        self.assertFalse(knight.stagger_immune_now)
+        knight.on_projectile(w)
+        self.assertEqual(knight.state, STAGGER)
+
+    def test_immune_knight_can_still_be_interrupted(self):
+        from ninjavenge.entities import KnightBoss
+        game, w, knight = self._game_with(KnightBoss, hp=10)
+        knight.stagger_immune = 1.0
+        knight.x, knight.attack_cd = w.player.x + 130, 0
+        self.run_frames(2)
+        self.assertTrue(knight.winding_up)
+        knight.on_projectile(w)
+        self.assertEqual(knight.state, STAGGER, "timing the wind-up beats the immunity")
+
     def test_tutorial_can_be_completed(self):
         app = self.app
         tut = TutorialScene(app)

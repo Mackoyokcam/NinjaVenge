@@ -65,11 +65,11 @@ class GameScene(Scene):
                 return False
             w.emit("switch")
             if p.loadout.shinobi:
-                # vanish in smoke and reappear in the next lane
-                w.sfx.play("throw")
+                # smoke bomb: vanish here, reappear in the next lane in another puff
+                w.sfx.play("smoke_bomb")
                 target_y = C.LANE_FLOORS[p.lane + (1 if action == "up" else -1)]
                 for y in (start_y, target_y):
-                    w.effects.burst(p.x, y - 60, (190, 190, 210), n=16, speed=180, size=7, life=0.35)
+                    w.effects.smoke_bomb(p.x, y - 65)
             else:
                 w.sfx.play("jump")
         elif action == "attack":

@@ -41,9 +41,14 @@ class _BossMixin:
         ahead = (p.x - self.x) * self.facing
         return p.alive and p.lane == self.lane and 0 < ahead < max_dist
 
+    def _player_behind(self, world, max_dist):
+        p = world.player
+        behind = (self.x - p.x) * self.facing
+        return p.alive and p.lane == self.lane and 0 < behind < max_dist
+
     def _interrupt(self, world):
         self.state = STAGGER
-        self.stagger_t = C.BOSS_INTERRUPT_STAGGER
+        self.stagger_t = C.BOSS_INTERRUPT_STAGGER * world.loadout.stagger_mult
         world.sfx.play("dink")
         world.emit("stagger")
         world.effects.sparks(self.x, self.y - 120, C.CYAN, 14)
@@ -52,7 +57,8 @@ class _BossMixin:
 
 
 class KnightBoss(_BossMixin, Robot):
-    """Armored like a robot. Winds up a big sword swing when Ren is in front of him."""
+    """Armored like a robot. Winds up a big sword swing when Ren is in front of him,
+    and turns around to swing at Ren if he lurks close behind (unless staggered)."""
     title = "SIR CLANK"
     folder = "boss/knight"
     run_time = 1.0
@@ -64,6 +70,7 @@ class KnightBoss(_BossMixin, Robot):
         self.attack_anim = Animation(assets.animation(f"{self.folder}/attack"), C.KNIGHT_ATTACK_TIME, loop=False)
         self.attack_cd = 1.0
         self._struck = False
+        self._turned = False   # facing flipped for a swing behind him; restored afterwards
 
     @property
     def hittable(self):
@@ -90,14 +97,28 @@ class KnightBoss(_BossMixin, Robot):
 
     def think(self, dt, world):
         self.attack_cd -= dt
-        if self.attack_cd <= 0 and self._player_ahead(world, C.KNIGHT_REACH[0] + 20):
-            self.state = ATTACK
-            self.attack_anim.reset()
-            self._struck = False
+        if self.attack_cd > 0:
+            return
+        if self._player_ahead(world, C.KNIGHT_REACH[0] + 20):
+            self._start_attack()
+        elif self._player_behind(world, C.KNIGHT_TURN_RANGE):
+            self.facing = -self.facing
+            self._turned = True
+            self._start_attack()
+
+    def _start_attack(self):
+        self.state = ATTACK
+        self.attack_anim.reset()
+        self._struck = False
 
     def update(self, dt, world):
+        if self._turned and self.state != ATTACK:
+            # swing finished, interrupted or staggered: face the road again
+            self.facing = -self.facing
+            self._turned = False
         if self.state == ATTACK:
             self.flash = max(0.0, self.flash - dt)
+            self.stagger_immune = max(0.0, self.stagger_immune - dt)
             self.attack_anim.update(dt)
             lo, hi = C.KNIGHT_SWING
             if not self._struck and lo <= self.attack_anim.progress <= hi:
