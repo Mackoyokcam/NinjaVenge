@@ -1,0 +1,9 @@
+Ninjavenge credits
+==================
+
+Game design and original code: Mark D Hangarter
+
+Boss art (CC0 / public domain), by pzUH (GameArt2D):
+  - "The Knight - Free Sprite"  https://opengameart.org/content/the-knight-free-sprite
+  - "Free Dino Sprites"         https://opengameart.org/content/free-dino-sprites
+  Resized and re-centred for the game by tools/prepare_boss_art.py; frames are in src/data/boss/.

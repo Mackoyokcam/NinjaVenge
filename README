@@ -1,7 +1,89 @@
-Ninjavenge version 1: 4/27/2016
+Ninjavenge
+==========
 
-Programmer: Mark D Hangarter
-***********************************************************
-Please consult Game Manual in the Game Manual directory. 
-***********************************************************
+A lane-defense action game. You are Ren, the last ninja of the Otaku clan.
+Cowboys, robots and jack-o-lanterns raided your home and now travel its roads.
+Stop them: every enemy that slips past costs you a heart.
 
+Original version: 4/27/2016, Mark D Hangarter.
+Version 2 (2026): rewrite with wave-based play, enemy attacks, combos, a boss,
+and a restructured codebase. The PDF in "Game Manual" describes version 1.
+
+
+Running
+-------
+    pip install -r requirements.txt
+    cd src
+    python main.py
+
+
+Controls
+--------
+    Left / Right      run
+    Up / Down         hop to the next lane (attack/throw mid-air for a jump attack)
+    A  (or J / Z)     katana - hits everything in reach, sends bullets back at the shooter
+    S  (or K / X)     throw kunai (short cooldown)
+    Esc / P / F1      pause
+Menus work with the arrow keys + Enter, or the mouse.
+
+
+Enemies
+-------
+    Cowboy       fast, fragile; flashes "!" then shoots down his lane
+    Robot        armored; a kunai staggers it, slashes do double damage while staggered
+    Jack         revives after death unless you SLASH the pumpkin before the ring closes
+                 (kunai pass straight through it)
+    Bosses       every 5th wave, alternating Sir Clank (knight) and Rex (dino).
+                 A kunai during their "!" wind-up interrupts the attack.
+                 A boss that gets through costs 3 hearts.
+
+Chain kills without losing a heart to raise the score multiplier (up to x5).
+Air kills, deflected bullets and smashed pumpkins earn bonus points.
+Deflected bullets hit enemies like a kunai: cowboys and jacks take damage, armored
+foes are staggered, and a ricochet can interrupt a boss wind-up.
+High scores are saved to ~/.ninjavenge/scores.json.
+
+
+Ryo and the Dojo Shop
+---------------------
+Kills earn ryo (cowboy 1, jack 2, robot 3, boss 25) and clearing wave N pays 2*N.
+Ryo is banked when a run ends and spent in the Dojo Shop (main menu or game over):
+    Swift Kunai       kunai fly 20% faster per level (3 levels)
+    Quick Hands       kunai cooldown 20% shorter per level (3 levels)
+    Sharpened Katana  +0.5 katana damage per level (3 levels)
+    Extra Heart       +1 max heart per level (2 levels)
+    Shinobi Mode      teleport between lanes instead of jumping (toggle on/off in the shop)
+Progress is saved to ~/.ninjavenge/profile.json. Prices and rates live in
+ninjavenge/upgrades.py and ninjavenge/config.py.
+
+
+Code layout (src/)
+------------------
+    main.py                 entry point
+    ninjavenge/config.py    every tunable number (speeds, timings, lanes, scoring)
+    ninjavenge/app.py       the single game loop + scene stack
+    ninjavenge/assets.py    cached image/animation/sound loading (frames pre-flipped)
+    ninjavenge/animation.py time-based animation
+    ninjavenge/world.py     in-play state and the rules connecting entities
+    ninjavenge/waves.py     wave definitions + WaveDirector (pure logic)
+    ninjavenge/scoring.py   score and combo multiplier (pure logic)
+    ninjavenge/highscore.py persistent high-score table
+    ninjavenge/upgrades.py  shop upgrades, Loadout, ryo earnings (pure logic)
+    ninjavenge/profile.py   saved ryo balance and purchased upgrades
+    ninjavenge/entities/    Ninja, enemies, projectiles, particles
+    ninjavenge/scenes/      menu, game, tutorial, pause, game over, info screens
+    ninjavenge/ui.py        menus, background, HUD
+    tests/                  unit + headless integration tests
+
+
+Boss art
+--------
+The boss sprites are pzUH's CC0 GameArt2D packs (see CREDITS). To regenerate the
+game-sized frames from the original zips:
+    python tools/prepare_boss_art.py <FreeKnight/png> <FreeDinoSprite/png>
+
+
+Tests
+-----
+    cd src
+    python -m unittest discover tests

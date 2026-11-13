@@ -1,0 +1,367 @@
+"""Headless integration tests: drive real scenes with synthetic input."""
+import os
+import random
+import tempfile
+import unittest
+
+os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
+os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
+
+import pygame  # noqa: E402
+
+from ninjavenge import config  # noqa: E402
+from ninjavenge.app import App  # noqa: E402
+from ninjavenge.entities.enemies import CORPSE, STAGGER, Jack, Robot, Cowboy  # noqa: E402
+from ninjavenge.scenes.game import GameScene  # noqa: E402
+from ninjavenge.scenes.gameover import GameOverScene  # noqa: E402
+from ninjavenge.scenes.menu import MenuScene  # noqa: E402
+from ninjavenge.scenes.pause import PauseScene  # noqa: E402
+from ninjavenge.scenes.tutorial import STEPS, TutorialScene  # noqa: E402
+
+DT = 1 / 60
+
+
+def key(k):
+    return pygame.event.Event(pygame.KEYDOWN, key=k, mod=0, unicode="", scancode=0)
+
+
+class SmokeTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.TemporaryDirectory()
+        cls._old_save = config.SAVE_PATH, config.PROFILE_PATH
+        config.SAVE_PATH = os.path.join(cls.tmp.name, "scores.json")
+        config.PROFILE_PATH = os.path.join(cls.tmp.name, "profile.json")
+        cls.app = App()
+
+    @classmethod
+    def tearDownClass(cls):
+        config.SAVE_PATH, config.PROFILE_PATH = cls._old_save
+        pygame.quit()
+        cls.tmp.cleanup()
+
+    def run_frames(self, n, events_fn=None):
+        for i in range(n):
+            self.app.step(DT, events_fn(i) if events_fn else [])
+
+    def test_menu_starts_game_and_pause_resumes(self):
+        app = self.app
+        app.change(MenuScene(app))
+        self.run_frames(5)
+        app.step(DT, [key(pygame.K_RETURN)])   # "Start" is selected by default
+        self.assertIsInstance(app.scene, GameScene)
+        game = app.scene
+        self.run_frames(10)
+        app.step(DT, [key(pygame.K_ESCAPE)])
+        self.assertIsInstance(app.scene, PauseScene)
+        t = game.director.timer
+        self.run_frames(30)
+        self.assertEqual(game.director.timer, t, "game must be frozen while paused")
+        app.step(DT, [key(pygame.K_ESCAPE)])
+        self.assertIs(app.scene, game)
+
+    def test_random_play_survives_and_reaches_game_over(self):
+        app = self.app
+        rng = random.Random(0)
+        game = GameScene(app, rng=random.Random(0))
+        app.change(game)
+        keys = [pygame.K_UP, pygame.K_DOWN, pygame.K_a, pygame.K_s]
+        game.read_movement = lambda: rng.choice((-1, 0, 1))
+        for i in range(60 * 240):
+            evs = [key(rng.choice(keys))] if rng.random() < 0.08 else []
+            app.step(DT, evs)
+            if isinstance(app.scene, GameOverScene):
+                break
+            if i == 60 * 120:
+                game.world.hearts = 1   # speed things up
+        self.assertIsInstance(app.scene, GameOverScene)
+        self.assertGreater(game.world.kills, 0, "random mashing should kill something")
+        self.run_frames(5)
+        app.step(DT, [key(pygame.K_RETURN)])   # Retry
+        self.assertIsInstance(app.scene, GameScene)
+
+    def _game_with(self, enemy_cls, **kw):
+        game = GameScene(self.app)
+        self.app.change(game)
+        game.director = None
+        w = game.world
+        w.player.x = 400
+        e = enemy_cls(self.app.assets, 0, 1, **kw)  # spawn right, walk left
+        e.x = 520
+        e.speed = 0
+        w.enemies.append(e)
+        return game, w, e
+
+    def test_sword_hits_multiple_enemies_once_per_swing(self):
+        game, w, e1 = self._game_with(Cowboy)
+        e2 = Cowboy(self.app.assets, 0, 1)
+        e2.x, e2.speed = 470, 0
+        e1.fire_cd = e2.fire_cd = 99
+        w.enemies.append(e2)
+        w.player.facing = 1
+        self.app.step(DT, [key(pygame.K_a)])
+        self.run_frames(40)
+        self.assertEqual(w.kills, 2)
+
+    def test_robot_kunai_staggers_then_sword_double_damage(self):
+        game, w, robot = self._game_with(Robot, hp=4)
+        w.player.facing = 1
+        w.player.x = 300
+        self.app.step(DT, [key(pygame.K_s)])
+        for _ in range(60):
+            self.app.step(DT, [])
+            if robot.state == STAGGER:
+                break
+        self.assertEqual(robot.state, STAGGER)
+        self.assertEqual(robot.hp, 4, "kunai must not damage robots")
+        w.player.x = 430
+        self.app.step(DT, [key(pygame.K_a)])   # pressed mid-throw: should be buffered
+        self.run_frames(30)
+        self.assertEqual(robot.hp, 2)
+
+    def test_jack_revives_unless_smashed(self):
+        game, w, jack = self._game_with(Jack, revive_time=0.5)
+        jack.damage(w, 1)
+        self.run_frames(int(60 * 0.8) + 10)
+        self.assertEqual(jack.state, CORPSE)
+        self.run_frames(40)
+        self.assertEqual(jack.state, "walk", "jack should revive")
+        self.assertEqual(jack.revives, 1)
+        jack.speed = 0
+        jack.damage(w, 1)
+        self.run_frames(60)
+        w.player.facing = 1
+        self.app.step(DT, [key(pygame.K_a)])
+        self.run_frames(30)
+        self.assertNotIn(jack, w.enemies, "smashed pumpkin should be removed")
+
+    def test_cowboy_shoots_player_in_lane(self):
+        game, w, cb = self._game_with(Cowboy)
+        cb.x = 900
+        cb.fire_cd = 0
+        hearts = w.hearts
+        self.run_frames(120)
+        self.assertEqual(w.hearts, hearts - 1)
+        self.assertGreater(w.player.invuln, 0)
+
+    def test_leak_costs_a_heart_and_keeps_other_enemies(self):
+        game, w, cb = self._game_with(Cowboy)
+        other = Robot(self.app.assets, 2, 1)
+        other.speed = 0
+        w.enemies.append(other)
+        cb.x, cb.speed, cb.fire_cd = -config.SPAWN_MARGIN + 1, 200, 99
+        self.run_frames(5)
+        self.assertEqual(w.hearts, config.PLAYER_MAX_HEARTS - 1)
+        self.assertIn(other, w.enemies)
+
+    def test_can_run_while_throwing(self):
+        game, w, cb = self._game_with(Cowboy)
+        cb.x, cb.fire_cd = 1400, 99
+        game.read_movement = lambda: 1
+        self.run_frames(5)
+        x0 = w.player.x
+        self.app.step(DT, [key(pygame.K_s)])
+        self.assertEqual(w.player.state.name, "THROW")
+        self.run_frames(10)
+        self.assertEqual(w.player.state.name, "THROW")
+        self.assertGreater(w.player.x, x0 + 40, "Ren should keep running during a throw")
+        self.assertEqual(len(w.kunais), 1)
+
+    def test_jack_corpse_stays_visible_until_revive(self):
+        game, w, jack = self._game_with(Jack, revive_time=3.0)
+        jack.damage(w, 1)
+        self.run_frames(int(60 * 2.8))
+        self.assertEqual(jack.state, CORPSE)
+        self.assertEqual(jack.corpse_alpha(), 255)
+        self.assertIn(jack, w.enemies)
+
+    def test_bosses_alternate_and_use_their_own_art(self):
+        from ninjavenge.entities import DinoBoss, KnightBoss, boss_class
+        self.assertIs(boss_class(5), KnightBoss)
+        self.assertIs(boss_class(10), DinoBoss)
+        self.assertIs(boss_class(15), KnightBoss)
+        k = KnightBoss(self.app.assets, 0, 1, 10)
+        self.assertNotEqual(k.run.right[0].get_size(), Robot(self.app.assets, 0, 1).run.right[0].get_size())
+
+    def test_knight_swing_hits_unless_interrupted(self):
+        from ninjavenge.entities import KnightBoss
+        # uninterrupted: the swing lands
+        game, w, knight = self._game_with(KnightBoss, hp=10)
+        knight.x, knight.attack_cd = w.player.x + 130, 0
+        self.run_frames(70)
+        self.assertEqual(w.hearts, config.PLAYER_MAX_HEARTS - 1)
+        # interrupted by a kunai during the wind-up
+        game, w, knight = self._game_with(KnightBoss, hp=10)
+        knight.x, knight.attack_cd = w.player.x + 160, 0
+        w.player.facing = 1
+        self.run_frames(2)
+        self.assertEqual(knight.state, "attack")
+        self.app.step(DT, [key(pygame.K_s)])
+        self.run_frames(20)
+        self.assertEqual(knight.state, STAGGER)
+        self.run_frames(30)
+        self.assertEqual(w.hearts, config.PLAYER_MAX_HEARTS)
+
+    def test_dino_charges_and_can_be_interrupted(self):
+        from ninjavenge.entities import DinoBoss
+        game, w, dino = self._game_with(DinoBoss, hp=10)
+        dino.x, dino.speed, dino.charge_cd = 1200, 0, 0
+        w.player.x = 300
+        self.run_frames(2)
+        self.assertEqual(dino.state, "windup")
+        self.run_frames(int(60 * config.DINO_WINDUP) + 2)
+        self.assertEqual(dino.state, "charge")
+        x0 = dino.x
+        self.run_frames(20)
+        self.assertLess(dino.x, x0 - 100, "charge should move fast")
+        # interrupt
+        game, w, dino = self._game_with(DinoBoss, hp=10)
+        dino.x, dino.speed, dino.charge_cd = 900, 0, 0
+        w.player.x, w.player.facing = 400, 1
+        self.run_frames(2)
+        self.app.step(DT, [key(pygame.K_s)])
+        self.run_frames(30)
+        self.assertEqual(dino.state, STAGGER)
+        self.assertEqual(dino.hp, 10, "an interrupt staggers instead of damaging")
+
+    # ------------------------------------------------------------ v3 features
+    def setUp(self):
+        from ninjavenge.profile import Profile
+        self.app.profile = Profile()      # fresh, upgrade-free profile per test
+        self.app.profile.levels, self.app.profile.enabled, self.app.profile.ryo = {}, {}, 0
+
+    def test_kunai_passes_through_pumpkin_but_slash_smashes(self):
+        game, w, jack = self._game_with(Jack, revive_time=5.0)
+        jack.damage(w, 1)
+        self.run_frames(60)
+        self.assertTrue(jack.smashable)
+        w.player.x, w.player.facing = 300, 1
+        self.app.step(DT, [key(pygame.K_s)])
+        self.run_frames(40)
+        self.assertIn(jack, w.enemies, "kunai must not smash a pumpkin")
+        self.assertTrue(jack.smashable)
+        w.player.x = 460
+        self.app.step(DT, [key(pygame.K_a)])
+        self.run_frames(30)
+        self.assertNotIn(jack, w.enemies)
+
+    def _deflect_setup(self, target):
+        from ninjavenge.entities import Bullet
+        game, w, enemy = self._game_with(target)
+        enemy.x = 900
+        if hasattr(enemy, "fire_cd"):
+            enemy.fire_cd = 99
+        w.player.x, w.player.facing = 600, 1
+        w.bullets.append(Bullet(700, w.player.y - 78, -1))   # incoming from the right
+        self.app.step(DT, [key(pygame.K_a)])
+        return game, w, enemy
+
+    def test_deflected_bullet_flies_back_and_kills_cowboy(self):
+        game, w, cb = self._deflect_setup(Cowboy)
+        for _ in range(60):
+            self.app.step(DT, [])
+            if w.bullets and w.bullets[0].friendly:
+                break
+        self.assertTrue(w.bullets and w.bullets[0].friendly and w.bullets[0].facing == 1)
+        self.run_frames(60)
+        self.assertIn(cb.state, ("dying", "corpse"))
+        self.assertEqual(w.hearts, config.PLAYER_MAX_HEARTS)
+
+    def test_deflected_bullet_staggers_robot_without_damage(self):
+        game, w, robot = self._deflect_setup(Robot)
+        self.run_frames(60)
+        self.assertEqual(robot.state, STAGGER)
+        self.assertEqual(robot.hp, robot.max_hp)
+
+    def test_shinobi_mode_teleports_fast_and_invisible(self):
+        self.app.profile.levels = {"shinobi": 1}
+        game = GameScene(self.app)
+        self.app.change(game)
+        game.director = None
+        p = game.world.player
+        self.app.step(DT, [key(pygame.K_UP)])
+        self.assertTrue(p.teleporting)
+        self.run_frames(int(60 * config.SHINOBI_SWITCH_TIME) + 2)
+        self.assertEqual((p.lane, p.airborne), (1, False))
+        # toggled off -> normal jump again
+        self.app.profile.enabled = {"shinobi": False}
+        game = GameScene(self.app)
+        self.app.change(game)
+        self.assertFalse(game.world.player.loadout.shinobi)
+
+    def test_katana_upgrade_increases_damage(self):
+        self.app.profile.levels = {"katana": 2}
+        game, w, robot = self._game_with(Robot, hp=4)
+        w.player.x, w.player.facing = 430, 1
+        self.app.step(DT, [key(pygame.K_a)])
+        self.run_frames(30)
+        self.assertEqual(robot.hp, 2)
+
+    def test_kunai_upgrades_apply(self):
+        self.app.profile.levels = {"kunai_speed": 3, "quick_hands": 3, "hearts": 2}
+        game = GameScene(self.app)
+        self.app.change(game)
+        w = game.world
+        self.assertAlmostEqual(w.player.loadout.kunai_cooldown, config.KUNAI_COOLDOWN * 0.4)
+        self.assertEqual(w.hearts, config.PLAYER_MAX_HEARTS + 2)
+        self.app.step(DT, [key(pygame.K_s)])
+        self.run_frames(15)
+        self.assertAlmostEqual(w.kunais[0].speed, config.KUNAI_SPEED * 1.6)
+
+    def test_ryo_is_banked_on_game_over_and_spent_in_shop(self):
+        from ninjavenge.scenes.shop import ShopScene
+        game, w, cb = self._game_with(Cowboy)
+        cb.damage(w, 1)
+        w.waves_cleared = 2
+        expected = config.RYO["cowboy"] + config.RYO_PER_WAVE * (1 + 2)
+        self.assertEqual(w.ryo_earned, expected)
+        w.hearts = 1
+        w.leak(cb)
+        self.run_frames(60 * 3)
+        self.assertIsInstance(self.app.scene, GameOverScene)
+        self.assertEqual(self.app.profile.ryo, expected)
+        game.on_quit()   # banking happens only once
+        self.assertEqual(self.app.profile.ryo, expected)
+        self.app.profile.ryo = 100
+        self.app.push(ShopScene(self.app))
+        self.app.step(DT, [key(pygame.K_RETURN)])   # first row: Swift Kunai, 30 ryo
+        self.assertEqual(self.app.profile.level("kunai_speed"), 1)
+        self.assertEqual(self.app.profile.ryo, 70)
+        self.app.step(DT, [key(pygame.K_ESCAPE)])
+        self.assertIsInstance(self.app.scene, GameOverScene)
+
+    def test_tutorial_can_be_completed(self):
+        app = self.app
+        tut = TutorialScene(app)
+        app.change(tut)
+        tut.read_movement = lambda: 1
+        self.run_frames(80)                                   # move
+        app.step(DT, [key(pygame.K_UP)]); self.run_frames(80)  # switch
+        app.step(DT, [key(pygame.K_a)]); self.run_frames(80)   # attack
+        app.step(DT, [key(pygame.K_s)]); self.run_frames(80)   # throw
+        app.step(DT, [key(pygame.K_DOWN)]); app.step(DT, [key(pygame.K_a)]); self.run_frames(80)  # air attack
+        self.assertEqual(tut.step, 5)
+        tut.read_movement = lambda: 0
+        # combat steps: cheat by killing/smashing the spawned enemy directly
+        w = tut.world
+        for _ in range(3):
+            for _ in range(200):
+                app.step(DT, [])
+                if w.enemies:
+                    break
+            e = w.enemies[0]
+            if isinstance(e, Robot):
+                e.hp = 1
+            e.damage(w, 1)
+            if isinstance(e, Jack):
+                self.run_frames(60)
+                e.smash(w)
+            self.run_frames(80)
+            w.enemies.clear()
+        self.assertTrue(tut.done, f"stuck on step {tut.step}: {STEPS[min(tut.step, len(STEPS)-1)][0]}")
+        app.step(DT, [key(pygame.K_RETURN)])
+        self.assertIsInstance(app.scene, MenuScene)
+
+
+if __name__ == "__main__":
+    unittest.main()
