@@ -1,7 +1,112 @@
-Ninjavenge version 1: 4/27/2016
+Ninjavenge
+==========
 
-Programmer: Mark D Hangarter
-***********************************************************
-Please consult Game Manual in the Game Manual directory. 
-***********************************************************
+A lane-defense action game. You are Ren, the last ninja of the Otaku clan.
+Cowboys, robots and jack-o-lanterns raided your home and now travel its roads.
+Stop them: every enemy that slips past costs you a heart.
 
+Original version: 4/27/2016, Mark D Hangarter.
+Version 2 (2026): rewrite with wave-based play, enemy attacks, combos, bosses,
+a Dojo Shop, two territories with their own music, and a restructured codebase. The PDF in "Game Manual" describes version 1.
+
+
+Running
+-------
+    pip install -r requirements.txt
+    cd src
+    python main.py
+
+
+Controls
+--------
+    Left / Right      run
+    Up / Down         hop to the next lane (attack/throw mid-air for a jump attack)
+    A  (or J / Z)     katana - hits everything in reach, sends bullets back at the shooter
+    S  (or K / X)     throw kunai (short cooldown)
+    Esc / P / F1      pause
+Menus work with the arrow keys + Enter, or the mouse.
+
+
+Enemies
+-------
+    Cowboy       fast, fragile; flashes "!" then shoots down his lane
+    Robot        armored; a kunai staggers it, slashes do double damage while staggered
+    Jack         revives after death unless you SLASH the pumpkin before the ring closes
+                 (kunai pass straight through it)
+    Bosses       every 5th wave, alternating Sir Clank (knight) and Rex (dino).
+                 A kunai during their "!" wind-up interrupts the attack.
+                 Sir Clank turns around and swings if you stand close behind him.
+                 After a stagger he glows gold for 1.5s: kunai glance off ("IMMUNE"),
+                 but a kunai during his wind-up still interrupts him.
+                 Rex can't turn around, but whips his tail at anyone close behind him.
+                 A boss that gets through costs 3 hearts.
+
+Territories and music
+---------------------
+Waves 1-5 are Sir Clank's medieval lands (castle at dusk), waves 6-10 are Rex's
+prehistoric jungle (smoking volcano), and they keep alternating. The scenery
+cross-fades when you cross into the next territory.
+Music: one ninja theme for the opening waves, a different one for the rounds
+after each boss, and each boss fight has its own track (medieval battle for
+Sir Clank, tribal war drums for Rex). The tutorial keeps the original theme.
+Tracks and volumes are listed in config.MUSIC; the schedule is in stages.py.
+
+
+Chain kills without losing a heart to raise the score multiplier (up to x5).
+Air kills, deflected bullets and smashed pumpkins earn bonus points.
+Deflected bullets hit enemies like a kunai: cowboys and jacks take damage, armored
+foes are staggered, and a ricochet can interrupt a boss wind-up.
+High scores are saved to ~/.ninjavenge/scores.json.
+
+
+Ryo and the Dojo Shop
+---------------------
+Kills earn ryo (cowboy 1, jack 2, robot 3, boss 25) and clearing wave N pays 2*N.
+Ryo is banked when a run ends and spent in the Dojo Shop (main menu or game over):
+    Swift Kunai       kunai fly 20% faster per level (3 levels)
+    Quick Hands       kunai cooldown 20% shorter per level (3 levels)
+    Heavy Kunai       kunai staggers last 25% longer per level (3 levels)
+    Sharpened Katana  +0.5 katana damage per level (3 levels)
+    Swift Blade       shorter pause between katana swings (3 levels; level 3 removes it)
+    Fleet Feet        run 10% faster per level (3 levels)
+    Extra Heart       +1 max heart per level (2 levels)
+    Shinobi Mode      teleport between lanes in a flash instead of jumping (toggle on/off in the shop)
+Progress is saved to ~/.ninjavenge/profile.json. Prices and rates live in
+ninjavenge/upgrades.py and ninjavenge/config.py.
+
+
+Code layout (src/)
+------------------
+    main.py                 entry point
+    ninjavenge/config.py    every tunable number (speeds, timings, lanes, scoring)
+    ninjavenge/app.py       the single game loop + scene stack
+    ninjavenge/assets.py    cached image/animation/sound loading (frames pre-flipped)
+    ninjavenge/animation.py time-based animation
+    ninjavenge/world.py     in-play state and the rules connecting entities
+    ninjavenge/waves.py     wave definitions + WaveDirector (pure logic)
+    ninjavenge/stages.py    which territory/music each wave gets (pure logic)
+    ninjavenge/scoring.py   score and combo multiplier (pure logic)
+    ninjavenge/highscore.py persistent high-score table
+    ninjavenge/upgrades.py  shop upgrades, Loadout, ryo earnings (pure logic)
+    ninjavenge/profile.py   saved ryo balance and purchased upgrades
+    ninjavenge/entities/    Ninja, enemies, projectiles, particles
+    ninjavenge/scenes/      menu, game, tutorial, pause, game over, info screens
+    ninjavenge/ui.py        menus, background, HUD
+    tests/                  unit + headless integration tests
+
+
+Art, music and tools
+--------------------
+Third-party art and music are listed with their licenses in CREDITS. To regenerate
+the game files from the original downloads:
+    python tools/prepare_boss_art.py <FreeKnight/png> <FreeDinoSprite/png>
+    python tools/prepare_backgrounds.py <Background Elements Redux> <Jungle Pack>
+    python tools/make_teleport_sound.py        (synthesized, no inputs)
+    python tools/make_death_sounds.py <RPG Sound Pack> <break pumpkin> <80 CC0 creature SFX>
+The music files in src/data/music/ are used unmodified.
+
+
+Tests
+-----
+    cd src
+    python -m unittest discover tests

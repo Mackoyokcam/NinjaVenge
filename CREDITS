@@ -1,0 +1,44 @@
+Ninjavenge credits
+==================
+
+Game design and original code: Mark D Hangarter
+
+Boss art (CC0 / public domain), by pzUH (GameArt2D):
+  - "The Knight - Free Sprite"  https://opengameart.org/content/the-knight-free-sprite
+  - "Free Dino Sprites"         https://opengameart.org/content/free-dino-sprites
+  Resized and re-centred for the game by tools/prepare_boss_art.py; frames are in src/data/boss/.
+
+Backgrounds (CC0 / public domain), composed by tools/prepare_backgrounds.py into src/data/bg/:
+  - Kenney "Background Elements Redux" (moon, mountains, pines)
+      https://opengameart.org/content/background-elements-redux  (www.kenney.nl)
+  - Tio Aimar "2D Platformer Jungle Pack" (hills, trees, plants, ground and ledges)
+      https://opengameart.org/content/2d-platformer-jungle-pack
+  The castles, volcano, ramparts, banners and torches are drawn in code.
+
+Music (src/data/music/, used unmodified):
+  - "Blackmoor Ninjas" by Matthew Pablo (www.matthewpablo.com), CC-BY 3.0
+      https://opengameart.org/content/blackmoor-ninjas-battle-theme          -> blackmoor_ninjas.mp3
+  - "Samurai" by Tad, CC-BY 4.0
+      https://opengameart.org/content/samurai                                 -> samurai.mp3
+  - "The Shogun" by Ali (alihamieh), OGA-BY 3.0
+      https://opengameart.org/content/the-shogun-ali                          -> the_shogun.ogg
+  - "Medieval Battle" by RandomMind, CC0
+      https://opengameart.org/content/medieval-battle                         -> medieval_battle.mp3
+  - "Drums in the Deepwood" by Elyvilon, CC-BY 4.0
+      https://opengameart.org/content/dark-forest-tribal-troll-folk-shamanic-music-drums-in-the-deepwood
+                                                                              -> drums_in_the_deepwood.mp3
+  Licenses: CC-BY 3.0 https://creativecommons.org/licenses/by/3.0/
+            CC-BY 4.0 https://creativecommons.org/licenses/by/4.0/
+            OGA-BY 3.0 https://static.opengameart.org/OGA-BY-3.0.txt
+  ninja.mp3 (tutorial) is from the original 2016 game.
+
+Shinobi Mode teleport sound: synthesized by tools/make_teleport_sound.py.
+
+Death sounds (CC0), mixed by tools/make_death_sounds.py into knight_dead.wav,
+pumpkin_dead.wav and dino_dead.wav:
+  - artisticdude "RPG Sound Pack" (groan, armor, chainmail, metal, ghostly sigh)
+      https://opengameart.org/content/rpg-sound-pack
+  - tinyworlds "break pumpkin"
+      https://opengameart.org/content/break-pumpkin
+  - rubberduck "80 CC0 creature SFX" (roars)
+      https://opengameart.org/content/80-cc0-creature-sfx
