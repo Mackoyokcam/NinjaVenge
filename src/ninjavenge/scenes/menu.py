@@ -15,10 +15,12 @@ class MenuScene(Scene):
             ("Start", self.start),
             ("Dojo Shop", self.shop),
             ("Tutorial", self.tutorial),
+            ("Boss Practice", self.practice),
             ("How to Play", self.about),
             ("High Scores", self.scores),
+            ("Credits", self.credits),
             ("Quit", app.quit),
-        ], C.SCREEN_W // 2, 330)
+        ], C.SCREEN_W // 2, 316, height=48, gap=8)
         self.ninja = Animation(app.assets.animation("ninja/right/idle"), 1.0)
         self.best = highscore.best()
         pygame.mouse.set_visible(True)
@@ -32,6 +34,10 @@ class MenuScene(Scene):
         from .tutorial import TutorialScene
         self.app.change(TutorialScene(self.app))
 
+    def practice(self):
+        from .practice import PracticeScene
+        self.app.change(PracticeScene(self.app))
+
     def shop(self):
         from .shop import ShopScene
         self.app.push(ShopScene(self.app))
@@ -43,6 +49,10 @@ class MenuScene(Scene):
     def scores(self):
         from .info import HighScoreScene
         self.app.push(HighScoreScene(self.app))
+
+    def credits(self):
+        from .info import CreditsScene
+        self.app.push(CreditsScene(self.app))
 
     def handle_event(self, event):
         if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:

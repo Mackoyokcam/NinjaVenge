@@ -89,6 +89,7 @@ SOUND_FILES = {
     "knight_dead": "knight_dead.wav",
     "dino_dead": "dino_dead.wav",
     "pumpkin_dead": "pumpkin_dead.wav",
+    "kage_dead": "kage_dead.wav",
     "grunt": "grunt.wav",
     "game_over": "game_over.wav",
     "ugh": "ugh.wav",

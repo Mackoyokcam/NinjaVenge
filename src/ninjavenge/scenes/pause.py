@@ -27,7 +27,7 @@ class PauseScene(Scene):
 
     def restart(self):
         self.game.bank_earnings()
-        self.app.change(type(self.game)(self.app))
+        self.app.change(self.game.fresh())
 
     def main_menu(self):
         self.game.bank_earnings()

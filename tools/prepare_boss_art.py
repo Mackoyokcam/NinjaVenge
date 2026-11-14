@@ -3,9 +3,10 @@
 Sources (CC0, by pzUH, https://opengameart.org):
     The Knight - Free Sprite  https://opengameart.org/content/the-knight-free-sprite   (FreeKnight.zip)
     Free Dino Sprites         https://opengameart.org/content/free-dino-sprites        (FreeDinoSprite.zip)
+    Ninja Girl - Free Sprite  https://opengameart.org/content/ninja-girl-free-sprite   (NinjaGirl.zip)
 
 Usage (unzip each pack first):
-    python tools/prepare_boss_art.py <FreeKnight/png dir> <FreeDinoSprite/png dir>
+    python tools/prepare_boss_art.py <FreeKnight/png dir> <FreeDinoSprite/png dir> <NinjaGirl/png dir>
 
 Each animation is scaled to the target height, cropped to the union of its frames, and
 padded so the body's centre (taken from the first frame) sits at the horizontal centre
@@ -25,12 +26,15 @@ OUT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 
 JOBS = {
     "knight": (215, {"running": "Walk", "attack": "Attack", "dying": "Dead"}),
     "dino": (190, {"running": "Walk", "charge": "Run", "dying": "Dead"}),
+    "kage": (160, {"running": "Run", "idle": "Idle", "throw": "Throw", "attack": "Attack",
+                   "slide": "Slide", "dying": "Dead"}),
 }
 
 
 def frames_for(src, prefix):
-    pat = re.compile(rf"^{prefix} \((\d+)\)\.png$")
-    names = sorted((int(m.group(1)), n) for n in os.listdir(src) if (m := pat.match(n)))
+    # "Walk (1).png" (knight, dino) or "Run__000.png" (ninja girl)
+    pat = re.compile(rf"^{prefix}(?: \((\d+)\)|__(\d+))\.png$")
+    names = sorted((int(m.group(1) or m.group(2)), n) for n in os.listdir(src) if (m := pat.match(n)))
     return [pygame.image.load(os.path.join(src, n)).convert_alpha() for _, n in names]
 
 
@@ -66,12 +70,13 @@ def process(name, src):
 
 
 def main():
-    if len(sys.argv) != 3:
+    if len(sys.argv) != 4:
         raise SystemExit(__doc__)
     pygame.init()
     pygame.display.set_mode((1, 1))
     process("knight", sys.argv[1])
     process("dino", sys.argv[2])
+    process("kage", sys.argv[3])
 
 
 if __name__ == "__main__":

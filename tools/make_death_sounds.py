@@ -3,6 +3,7 @@
     knight_dead.wav   groan, then armor and chainmail clattering to the ground
     pumpkin_dead.wav  a pumpkin smashing, with a ghostly sigh as the spirit leaves
     dino_dead.wav     a dying roar
+    kage_dead.wav     a last breath, then her blade clattering to the ground
 
 Sources (all CC0, see CREDITS):
     <rpg>       artisticdude "RPG Sound Pack"   (folder "RPG Sound Pack")
@@ -78,6 +79,12 @@ def main(rpg, pumpkin, creature):
     write("dino_dead.wav", mix([
         (load(os.path.join(creature, "roar_03.ogg")), 0.0, 1.0),     # bellow...
         (load(os.path.join(creature, "roar_02.ogg")), 0.3, 0.9),     # ...trailing off as he falls
+    ]))
+    write("kage_dead.wav", mix([
+        (load(os.path.join(creature, "breath.ogg")), 0.0, 3.0),           # last breath (quiet source)
+        (load(os.path.join(rpg, "NPC", "shade", "shade5.wav")), 0.05, 0.5),  # the shadow fades
+        (load(os.path.join(inv, "metal-small3.wav")), 0.45, 0.8),         # blade hits the ground
+        (load(os.path.join(inv, "metal-small1.wav")), 0.62, 0.4),
     ]))
 
 

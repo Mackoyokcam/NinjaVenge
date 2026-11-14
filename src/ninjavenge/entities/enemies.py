@@ -81,6 +81,10 @@ class Enemy:
         world.sfx.play("punch")
         self.damage(world, 1)
 
+    def on_ricochet(self, world):
+        """Hit by a bullet or shuriken Ren slashed back."""
+        self.on_projectile(world)
+
     def touch_player(self, world, player):
         """Called each frame the bodies overlap while this enemy is active."""
 

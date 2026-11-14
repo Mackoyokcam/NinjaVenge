@@ -94,9 +94,10 @@ class SmokeTest(unittest.TestCase):
 
     def test_each_enemy_has_its_own_death_sound(self):
         from ninjavenge.assets import SOUND_FILES
-        from ninjavenge.entities import DinoBoss, KnightBoss
+        from ninjavenge.entities import DinoBoss, KageBoss, KnightBoss
         heard = {}
-        for cls, kw in ((Cowboy, {}), (Robot, {}), (Jack, {}), (KnightBoss, {"hp": 10}), (DinoBoss, {"hp": 10})):
+        for cls, kw in ((Cowboy, {}), (Robot, {}), (Jack, {}), (KnightBoss, {"hp": 10}), (DinoBoss, {"hp": 10}),
+                        (KageBoss, {"hp": 10})):
             game, w, e = self._game_with(cls, **kw)
             played = []
             w.sfx.play = played.append
@@ -189,10 +190,11 @@ class SmokeTest(unittest.TestCase):
         self.assertIn(jack, w.enemies)
 
     def test_bosses_alternate_and_use_their_own_art(self):
-        from ninjavenge.entities import DinoBoss, KnightBoss, boss_class
+        from ninjavenge.entities import DinoBoss, KageBoss, KnightBoss, boss_class
         self.assertIs(boss_class(5), KnightBoss)
         self.assertIs(boss_class(10), DinoBoss)
-        self.assertIs(boss_class(15), KnightBoss)
+        self.assertIs(boss_class(15), KageBoss)
+        self.assertIs(boss_class(20), KnightBoss)
         k = KnightBoss(self.app.assets, 0, 1, 10)
         self.assertNotEqual(k.run.right[0].get_size(), Robot(self.app.assets, 0, 1).run.right[0].get_size())
 
@@ -456,7 +458,8 @@ class SmokeTest(unittest.TestCase):
         self.assertEqual((game.bg.theme, music.current), ("medieval", "intro"))
         d = game.director
         for n, theme, track in ((5, "medieval", "knight"), (6, "prehistoric", "after_knight"),
-                                (10, "prehistoric", "dino"), (11, "medieval", "after_dino")):
+                                (10, "prehistoric", "dino"), (11, "night", "after_dino"),
+                                (15, "night", "kage"), (16, "medieval", "after_kage")):
             d.number = n - 1
             d._next_wave()
             self.run_frames(2)
@@ -479,6 +482,191 @@ class SmokeTest(unittest.TestCase):
             bg.draw(self.app.screen)
         self.assertTrue(bg.smoke, "the volcano smokes")
         self.assertEqual(Background(self.app.assets, "nope").theme, "night")
+
+    def test_credits_screen_scrolls_and_closes(self):
+        from ninjavenge.scenes.info import CreditsScene
+        menu = MenuScene(self.app)
+        self.app.change(menu)
+        menu.credits()
+        credits = self.app.scene
+        self.assertIsInstance(credits, CreditsScene)
+        self.run_frames(60)
+        self.assertGreater(credits.scroll, 0, "auto-scrolls")
+        self.app.step(DT, [key(pygame.K_UP)] * 50)
+        self.assertEqual(credits.scroll, 0)
+        credits.scroll = credits.max_scroll
+        credits.draw(self.app.screen)
+        self.app.step(DT, [key(pygame.K_ESCAPE)])
+        self.assertIs(self.app.scene, menu)
+
+    def test_in_game_credits_match_the_credits_file(self):
+        import re
+        from ninjavenge.credits import SECTIONS
+        path = os.path.join(os.path.dirname(__file__), "..", "..", "CREDITS")
+        with open(path, encoding="utf-8") as f:
+            urls = set(re.findall(r"opengameart\.org/content/[\w-]+", f.read()))
+        shown = {src for _, entries in SECTIONS for _, _, src in entries if src}
+        self.assertEqual(urls, shown)
+
+    # ------------------------------------------------------------------ Kage
+    def _kage(self, hp=20):
+        from ninjavenge.entities import KageBoss
+        game, w, kage = self._game_with(KageBoss, hp=hp)
+        self.assertEqual(kage.state, "blink", "she arrives by teleport")
+        self.run_frames(int(60 * config.KAGE_BLINK_TIME) + 2)
+        self.assertEqual(kage.state, "idle")
+        return game, w, kage
+
+    def _place(self, kage, w, dx):
+        """Put Kage in Ren's lane, dx pixels from him, ready to act."""
+        kage.lane, kage.y = w.player.lane, float(config.LANE_FLOORS[w.player.lane])
+        kage.x = w.player.x + dx
+        kage.state, kage.timer, kage.windup = "idle", 99, 0.0
+
+    def test_kage_teleports_into_rens_lane(self):
+        game, w, kage = self._kage()
+        self.assertGreater(kage.max_hp, 0)
+        self.assertEqual(kage.max_hp, round(20 * config.KAGE_HP_MULT))
+        w.player.lane, w.player.y = 2, float(config.LANE_FLOORS[2])
+        kage.timer = 0
+        self.app.step(DT, [])
+        self.assertEqual(kage.state, "blink")
+        self.assertTrue(w.effects.ghosts, "teleport flicker")
+        game.draw(self.app.screen)                     # shimmer where she'll land
+        self.run_frames(int(60 * config.KAGE_BLINK_TIME) + 2)
+        self.assertEqual(kage.lane, 2)
+        self.assertGreaterEqual(abs(kage.x - w.player.x), config.KAGE_BLINK_DIST[0] - 1)
+        self.assertIs(w.boss, kage, "boss bar stays up")
+
+    def test_kage_shuriken_volley_hits_and_can_be_slashed_back(self):
+        from ninjavenge.entities import Shuriken
+        game, w, kage = self._kage()
+        self._place(kage, w, 450)
+        kage.state, kage.windup, kage.shots, kage.timer = "throw", 0.01, config.KAGE_THROW_COUNT, 0.0
+        self.run_frames(3)
+        self.assertTrue(any(isinstance(b, Shuriken) for b in w.bullets))
+        self.run_frames(90)
+        self.assertLess(w.hearts, config.PLAYER_MAX_HEARTS, "standing still eats a shuriken")
+        self.assertIn(kage.state, ("recover", "idle", "blink", "throw", "slash", "dash"))
+        # a shuriken slashed back staggers her and hurts
+        self._place(kage, w, 300)
+        hp = kage.hp
+        star = Shuriken(kage.x - 40, kage.y - 80, 1)
+        star.reflect()
+        star.facing = 1 if kage.x > star.x else -1
+        w.bullets.append(star)
+        self.run_frames(4)
+        self.assertEqual(kage.state, "stagger")
+        self.assertEqual(kage.hp, hp - 2)
+
+    def test_kage_kunai_blocked_unless_interrupt_or_opening(self):
+        game, w, kage = self._kage()
+        self._place(kage, w, 450)
+        hp = kage.hp
+        kage.on_projectile(w)
+        self.assertEqual((kage.hp, kage.state), (hp, "idle"), "knocks kunai aside")
+        kage.state, kage.windup = "throw", 0.3
+        kage.on_projectile(w)
+        self.assertEqual(kage.state, "stagger", "kunai during '!' interrupts")
+        kage.state, kage.timer = "recover", 1.0
+        kage.on_projectile(w)
+        self.assertEqual(kage.hp, hp - 1)
+
+    def test_kage_slash_and_dash(self):
+        game, w, kage = self._kage()
+        self._place(kage, w, 120)
+        kage.timer = 0
+        self.app.step(DT, [])
+        self.assertEqual(kage.state, "slash", "close up she slashes")
+        self.run_frames(60)
+        self.assertEqual(w.hearts, config.PLAYER_MAX_HEARTS - 1)
+        # dash straight through Ren
+        game, w, kage = self._kage()
+        self._place(kage, w, 450)
+        kage.facing, kage.state, kage.windup, kage._struck = -1, "dash", 0.01, False
+        self.run_frames(60)
+        self.assertEqual(w.hearts, config.PLAYER_MAX_HEARTS - 1)
+        self.assertLess(kage.x, w.player.x, "ended up on his other side")
+
+    def test_kage_sword_hit_outside_opening_makes_her_blink(self):
+        game, w, kage = self._kage()
+        self._place(kage, w, 60)
+        hp = kage.hp
+        kage.on_sword(w, False)
+        self.assertEqual((kage.hp, kage.state), (hp - 1, "blink"))
+        self._place(kage, w, 60)
+        kage.state, kage.timer = "recover", 1.0
+        kage.on_sword(w, False)
+        self.assertEqual(kage.state, "recover", "no escape during an opening")
+
+    def test_kage_shadow_clones(self):
+        game, w, kage = self._kage(hp=20)
+        self._place(kage, w, 300)
+        kage.state, kage.timer = "recover", 5
+        while kage.hp > kage.max_hp * config.KAGE_CLONES_AT[0] + 1:
+            kage.hp -= 1
+        kage.on_projectile(w)                       # crosses the 50% line
+        self.assertEqual(kage.state, "blink")
+        self.run_frames(int(60 * config.KAGE_BLINK_TIME) + 10)
+        clones = [e for e in w.enemies if e.kind == "clone"]
+        self.assertEqual(len(clones), config.KAGE_CLONES)
+        self.assertEqual(len({c.lane for c in clones} | {kage.lane}), config.KAGE_CLONES + 1, "one per lane")
+        self.assertTrue(all(not c.counts_for_wave and not c.show_bar for c in clones))
+        self.assertIs(w.boss, kage)
+        game.draw(self.app.screen)
+        clones[0].on_sword(w, False)
+        self.assertEqual(clones[0].state, "gone", "a clone pops when hit")
+        hp = kage.hp
+        self.assertEqual(kage.hp, hp)
+        kage.state = "recover"
+        kage.damage(w, kage.hp)
+        self.assertEqual(clones[1].state, "gone", "clones vanish with her")
+        self.run_frames(120)
+        self.assertEqual(w.alive_enemies, 0)
+
+    # ------------------------------------------------------------------ Boss Practice
+    def test_boss_practice_starts_at_the_boss_and_returns(self):
+        from ninjavenge.entities import KageBoss
+        from ninjavenge.scenes.practice import PracticeScene
+        menu = MenuScene(self.app)
+        self.app.change(menu)
+        menu.practice()
+        self.assertIsInstance(self.app.scene, PracticeScene)
+        self.app.scene.fight("kage")
+        game = self.app.scene
+        self.assertEqual((game.director.number, game.practice_boss), (15, "kage"))
+        self.assertEqual(game.stage(), ("night", "kage"))
+        self.run_frames(int(60 * 2.5) + 5)
+        self.assertIsInstance(game.world.boss, KageBoss)
+        ryo = self.app.profile.ryo
+        game.world.kills_by_kind["boss"] += 1
+        for e in game.world.enemies:
+            e.state = "gone"
+        game.director._pending = []
+        game.director.state = game.director.CLEARING
+        self.run_frames(5)
+        self.assertEqual(game.director.number, 15, "practice doesn't roll on to wave 16")
+        game.draw(self.app.screen)
+        self.run_frames(int(60 * 3.0) + 5)
+        self.assertIsInstance(self.app.scene, PracticeScene)
+        self.assertEqual(self.app.profile.ryo, ryo, "no ryo from practice")
+        # losing also returns to the picker, without a high score
+        self.app.scene.fight("knight")
+        game = self.app.scene
+        self.assertEqual(game.director.number, 5)
+        game.world.hearts = 1
+        game.world._lose_hearts(1)
+        self.run_frames(int(60 * 2.5) + 5)
+        self.assertIsInstance(self.app.scene, PracticeScene)
+
+    def test_pause_restart_keeps_practice(self):
+        from ninjavenge.scenes.practice import PracticeScene
+        self.app.change(PracticeScene(self.app))
+        self.app.scene.fight("dino")
+        game = self.app.scene
+        self.app.step(DT, [key(pygame.K_ESCAPE)])
+        self.app.scene.restart()
+        self.assertEqual(self.app.scene.practice_boss, "dino")
 
     def test_tutorial_plays_its_own_music(self):
         self.app.change(TutorialScene(self.app))
