@@ -133,6 +133,9 @@ class KnightBoss(_BossMixin, Robot):
             return
         super().update(dt, world)
 
+    def on_death_sound(self, world):
+        world.sfx.play("knight_dead")
+
     def on_projectile(self, world):
         if self.winding_up:
             self._interrupt(world)
@@ -240,6 +243,9 @@ class DinoBoss(_BossMixin, Enemy):
                 self.charge_cd = random.uniform(*C.DINO_CHARGE_COOLDOWN)
             return
         super().update(dt, world)
+
+    def on_death_sound(self, world):
+        world.sfx.play("dino_dead")
 
     def on_projectile(self, world):
         if self.state == WINDUP:

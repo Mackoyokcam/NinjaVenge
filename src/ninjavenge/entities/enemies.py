@@ -295,7 +295,7 @@ class Jack(Enemy):
         return r.inflate(-30, -int(r.height * 0.45)).move(0, int(r.height * 0.2))
 
     def on_death_sound(self, world):
-        world.sfx.play("grunt")
+        world.sfx.play("pumpkin_dead")
 
     def corpse_alpha(self):
         return 255  # the body stays fully visible until it revives or is smashed

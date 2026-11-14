@@ -102,6 +102,7 @@ the game files from the original downloads:
     python tools/prepare_boss_art.py <FreeKnight/png> <FreeDinoSprite/png>
     python tools/prepare_backgrounds.py <Background Elements Redux> <Jungle Pack>
     python tools/make_teleport_sound.py        (synthesized, no inputs)
+    python tools/make_death_sounds.py <RPG Sound Pack> <break pumpkin> <80 CC0 creature SFX>
 The music files in src/data/music/ are used unmodified.
 
 

@@ -33,3 +33,12 @@ Music (src/data/music/, used unmodified):
   ninja.mp3 (tutorial) is from the original 2016 game.
 
 Shinobi Mode teleport sound: synthesized by tools/make_teleport_sound.py.
+
+Death sounds (CC0), mixed by tools/make_death_sounds.py into knight_dead.wav,
+pumpkin_dead.wav and dino_dead.wav:
+  - artisticdude "RPG Sound Pack" (groan, armor, chainmail, metal, ghostly sigh)
+      https://opengameart.org/content/rpg-sound-pack
+  - tinyworlds "break pumpkin"
+      https://opengameart.org/content/break-pumpkin
+  - rubberduck "80 CC0 creature SFX" (roars)
+      https://opengameart.org/content/80-cc0-creature-sfx

@@ -92,6 +92,19 @@ class SmokeTest(unittest.TestCase):
         w.enemies.append(e)
         return game, w, e
 
+    def test_each_enemy_has_its_own_death_sound(self):
+        from ninjavenge.assets import SOUND_FILES
+        from ninjavenge.entities import DinoBoss, KnightBoss
+        heard = {}
+        for cls, kw in ((Cowboy, {}), (Robot, {}), (Jack, {}), (KnightBoss, {"hp": 10}), (DinoBoss, {"hp": 10})):
+            game, w, e = self._game_with(cls, **kw)
+            played = []
+            w.sfx.play = played.append
+            e.on_death_sound(w)
+            heard[cls.__name__] = played[-1]
+            self.assertIn(played[-1], SOUND_FILES)
+        self.assertEqual(len(set(heard.values())), len(heard), heard)
+
     def test_sword_hits_multiple_enemies_once_per_swing(self):
         game, w, e1 = self._game_with(Cowboy)
         e2 = Cowboy(self.app.assets, 0, 1)
