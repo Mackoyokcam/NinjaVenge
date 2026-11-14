@@ -33,22 +33,35 @@ Enemies
     Robot        armored; a kunai staggers it, slashes do double damage while staggered
     Jack         revives after death unless you SLASH the pumpkin before the ring closes
                  (kunai pass straight through it)
-    Bosses       every 5th wave, alternating Sir Clank (knight) and Rex (dino).
+    Bosses       every 5th wave, rotating Sir Clank (knight), Rex (dino) and Kage.
                  A kunai during their "!" wind-up interrupts the attack.
                  Sir Clank turns around and swings if you stand close behind him.
                  After a stagger he glows gold for 1.5s: kunai glance off ("IMMUNE"),
                  but a kunai during his wind-up still interrupts him.
                  Rex can't turn around, but whips his tail at anyone close behind him.
                  A boss that gets through costs 3 hearts.
+    Kage         a rival kunoichi who hunts you instead of walking the road. She
+                 blinks into your lane (a shimmer marks where), throws shuriken
+                 volleys, slashes up close, or dashes straight through you.
+                 Slash a shuriken back to stagger her. She knocks kunai aside except
+                 during her "!" (interrupt) or right after a move (her opening).
+                 Hit her outside an opening and she blinks away. At 50% and 20%
+                 health she splits into shadow clones (darker; they pop when hit).
+                 Her fight is a duel: no other enemies show up.
+
+Boss Practice (main menu) jumps straight into any boss fight with your current
+upgrades. No ryo or high score; win or lose you return to the boss list.
 
 Territories and music
 ---------------------
 Waves 1-5 are Sir Clank's medieval lands (castle at dusk), waves 6-10 are Rex's
-prehistoric jungle (smoking volcano), and they keep alternating. The scenery
-cross-fades when you cross into the next territory.
+prehistoric jungle (smoking volcano), waves 11-15 are the ninja village at night
+(Kage's home), and then the cycle repeats. The scenery cross-fades when you cross
+into the next territory.
 Music: one ninja theme for the opening waves, a different one for the rounds
 after each boss, and each boss fight has its own track (medieval battle for
-Sir Clank, tribal war drums for Rex). The tutorial keeps the original theme.
+Sir Clank, tribal war drums for Rex, a Japanese battle theme for Kage).
+The tutorial keeps the original theme.
 Tracks and volumes are listed in config.MUSIC; the schedule is in stages.py.
 
 
@@ -99,7 +112,7 @@ Art, music and tools
 --------------------
 Third-party art and music are listed with their licenses in CREDITS. To regenerate
 the game files from the original downloads:
-    python tools/prepare_boss_art.py <FreeKnight/png> <FreeDinoSprite/png>
+    python tools/prepare_boss_art.py <FreeKnight/png> <FreeDinoSprite/png> <NinjaGirl/png>
     python tools/prepare_backgrounds.py <Background Elements Redux> <Jungle Pack>
     python tools/make_teleport_sound.py        (synthesized, no inputs)
     python tools/make_death_sounds.py <RPG Sound Pack> <break pumpkin> <80 CC0 creature SFX>

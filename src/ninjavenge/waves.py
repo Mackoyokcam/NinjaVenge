@@ -3,6 +3,22 @@ import random
 from dataclasses import dataclass, field
 
 BOSS_EVERY = 5
+# boss for wave n is BOSS_ORDER[(n // BOSS_EVERY) % 3]: knight on 5, dino on 10, kage on 15, ...
+BOSS_ORDER = ("kage", "knight", "dino")
+BOSS_LABELS = {
+    "knight": "BOSS: Sir Clank - kunai him mid-swing to interrupt",
+    "dino": "BOSS: Rex - kunai him while he shakes to stop the charge",
+    "kage": "BOSS: Kage - slash her shuriken back at her",
+}
+
+
+def boss_name(wave_number):
+    return BOSS_ORDER[(wave_number // BOSS_EVERY) % len(BOSS_ORDER)]
+
+
+def boss_wave(name, cycle=0):
+    """Wave number where `name` is fought (cycle 0 = first time)."""
+    return (BOSS_ORDER.index(name) + len(BOSS_ORDER) * (cycle + (name == BOSS_ORDER[0]))) * BOSS_EVERY
 
 
 @dataclass
@@ -49,13 +65,13 @@ def _boss_wave(n, rng):
     level = n // BOSS_EVERY
     spawns = [Spawn(0, "boss", rng.randrange(4))]
     t = 3.0
-    for _ in range(min(2 + level * 2, 16)):
+    minions = 0 if boss_name(n) == "kage" else min(2 + level * 2, 16)   # Kage's fight is a duel
+    for _ in range(minions):
         spawns.append(Spawn(t, rng.choice(["cowboy", "jack"])))
         t += max(1.5, 3.5 - level * 0.4)
     return Wave(n, spawns, speed_mult=min(1.0 + 0.05 * level, 2.0), robot_hp=min(3 + level, 8),
                 boss_hp=min(6 + 6 * level, 60), fire_mult=1.2, revive_time=3.5,
-                label=("BOSS: Sir Clank - kunai him mid-swing to interrupt" if level % 2 == 1
-                       else "BOSS: Rex - kunai him while he shakes to stop the charge"))
+                label=BOSS_LABELS[boss_name(n)])
 
 
 COSTS = {"cowboy": 1.0, "jack": 1.5, "robot": 2.0}

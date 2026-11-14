@@ -79,6 +79,26 @@ DINO_TAIL_TIME = 0.75
 DINO_TAIL_SWING = (0.4, 0.62)  # fraction of the swipe when the tail can hit
 DINO_TAIL_REACH = (180, 110)
 DINO_TAIL_COOLDOWN = (1.4, 2.2)
+# Kage, the rival kunoichi: hunts Ren across lanes instead of walking the road
+KAGE_HP_MULT = 0.75            # of the wave's boss HP: she's slippery, not tanky
+KAGE_BODY = (58, 150)
+KAGE_IDLE = (0.45, 0.8)        # pause between moves
+KAGE_BLINK_TIME = 0.55         # gone; a shimmer marks where she'll reappear
+KAGE_BLINK_DIST = (380, 560)   # reappears this far from Ren, in his lane
+KAGE_THROW_WINDUP = 0.5        # '!' before a shuriken volley (kunai interrupts)
+KAGE_THROW_COUNT = 3
+KAGE_THROW_GAP = 0.2
+KAGE_SLASH_RANGE = 210         # closer than this she slashes instead of throwing
+KAGE_SLASH_WINDUP = 0.4
+KAGE_SLASH_TIME = 0.55
+KAGE_SLASH_REACH = (150, 120)
+KAGE_DASH_WINDUP = 0.5
+KAGE_DASH_SPEED = 900
+KAGE_RECOVER = 0.9             # open to attacks after each move
+KAGE_STAGGER = 1.2
+KAGE_CLONES_AT = (0.5, 0.2)    # HP fractions where she splits into shadow clones
+KAGE_CLONES = 2
+SHURIKEN_SPEED = 560
 
 # Music: key -> (file in data/, volume). Volumes even out the tracks' loudness.
 MUSIC = {
@@ -86,8 +106,10 @@ MUSIC = {
     "intro": ("music/blackmoor_ninjas.mp3", 0.45),       # waves 1-4
     "after_knight": ("music/samurai.mp3", 0.8),           # rounds after beating Sir Clank
     "after_dino": ("music/the_shogun.ogg", 0.3),          # rounds after beating Rex
+    "after_kage": ("music/ninja_theme.ogg", 0.78),        # rounds after beating Kage
     "knight": ("music/medieval_battle.mp3", 0.55),        # Sir Clank's boss fight
     "dino": ("music/drums_in_the_deepwood.mp3", 0.32),    # Rex's boss fight
+    "kage": ("music/kage_battle.mp3", 0.47),              # Kage's boss fight
 }
 MUSIC_FADE = 0.8
 CORPSE_FADE = 1.2

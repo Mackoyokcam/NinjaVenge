@@ -3,10 +3,15 @@ Ninjavenge credits
 
 Game design and original code: Mark D Hangarter
 
-Boss art (CC0 / public domain), by pzUH (GameArt2D):
-  - "The Knight - Free Sprite"  https://opengameart.org/content/the-knight-free-sprite
-  - "Free Dino Sprites"         https://opengameart.org/content/free-dino-sprites
-  Resized and re-centred for the game by tools/prepare_boss_art.py; frames are in src/data/boss/.
+Character art (CC0 / public domain), by pzUH (GameArt2D):
+  - Ren:  "Ninja Adventure - Free Sprite"  https://opengameart.org/content/ninja-adventure-free-sprite
+  - Robot: "The Robot - Free Sprite"       https://opengameart.org/content/the-robot-free-sprite
+  - Jack: "Jack o' Lantern - Free Sprite"  https://opengameart.org/content/jack-o-lantern-free-sprite
+  - Sir Clank: "The Knight - Free Sprite"  https://opengameart.org/content/the-knight-free-sprite
+  - Rex:  "Free Dino Sprites"              https://opengameart.org/content/free-dino-sprites
+  - Kage: "Ninja Girl - Free Sprite"       https://opengameart.org/content/ninja-girl-free-sprite
+  The boss frames were resized and re-centred by tools/prepare_boss_art.py (src/data/boss/).
+  Cowboy: from the original 2016 game; source unknown.
 
 Backgrounds (CC0 / public domain), composed by tools/prepare_backgrounds.py into src/data/bg/:
   - Kenney "Background Elements Redux" (moon, mountains, pines)
@@ -24,6 +29,10 @@ Music (src/data/music/, used unmodified):
       https://opengameart.org/content/the-shogun-ali                          -> the_shogun.ogg
   - "Medieval Battle" by RandomMind, CC0
       https://opengameart.org/content/medieval-battle                         -> medieval_battle.mp3
+  - "Japanese Samurai Ninja Battle Trailer" by isao, OGA-BY 3.0
+      https://opengameart.org/content/japanese-samurai-ninja-battle-trailer   -> kage_battle.mp3
+  - "Ninja Theme" by spring-spring, CC0
+      https://opengameart.org/content/ninja-theme                             -> ninja_theme.ogg
   - "Drums in the Deepwood" by Elyvilon, CC-BY 4.0
       https://opengameart.org/content/dark-forest-tribal-troll-folk-shamanic-music-drums-in-the-deepwood
                                                                               -> drums_in_the_deepwood.mp3
@@ -35,10 +44,10 @@ Music (src/data/music/, used unmodified):
 Shinobi Mode teleport sound: synthesized by tools/make_teleport_sound.py.
 
 Death sounds (CC0), mixed by tools/make_death_sounds.py into knight_dead.wav,
-pumpkin_dead.wav and dino_dead.wav:
+pumpkin_dead.wav, dino_dead.wav and kage_dead.wav:
   - artisticdude "RPG Sound Pack" (groan, armor, chainmail, metal, ghostly sigh)
       https://opengameart.org/content/rpg-sound-pack
   - tinyworlds "break pumpkin"
       https://opengameart.org/content/break-pumpkin
-  - rubberduck "80 CC0 creature SFX" (roars)
+  - rubberduck "80 CC0 creature SFX" (roars, breath)
       https://opengameart.org/content/80-cc0-creature-sfx

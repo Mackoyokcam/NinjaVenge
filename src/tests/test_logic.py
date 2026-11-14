@@ -7,7 +7,7 @@ import unittest
 from ninjavenge import highscore
 from ninjavenge.animation import Animation
 from ninjavenge.scoring import ScoreKeeper
-from ninjavenge.stages import MEDIEVAL, PREHISTORIC, boss_name, music_for, territory
+from ninjavenge.stages import MEDIEVAL, PREHISTORIC, VILLAGE, boss_name, music_for, territory
 from ninjavenge.waves import BOSS_EVERY, WaveDirector, build_wave
 
 
@@ -183,17 +183,34 @@ class ProfileTest(unittest.TestCase):
 
 
 class StagesTest(unittest.TestCase):
-    def test_territories_alternate_with_their_boss(self):
-        self.assertEqual([territory(n) for n in (1, 5, 6, 10, 11, 15, 16)],
-                         [MEDIEVAL, MEDIEVAL, PREHISTORIC, PREHISTORIC, MEDIEVAL, MEDIEVAL, PREHISTORIC])
-        for n in range(BOSS_EVERY, 60, BOSS_EVERY):
-            # each boss fights on his own turf
-            self.assertEqual(territory(n), MEDIEVAL if boss_name(n) == "knight" else PREHISTORIC, n)
+    def test_territories_rotate_with_their_boss(self):
+        self.assertEqual([territory(n) for n in (1, 5, 6, 10, 11, 15, 16, 20, 21)],
+                         [MEDIEVAL, MEDIEVAL, PREHISTORIC, PREHISTORIC, VILLAGE, VILLAGE,
+                          MEDIEVAL, MEDIEVAL, PREHISTORIC])
+        home = {"knight": MEDIEVAL, "dino": PREHISTORIC, "kage": VILLAGE}
+        for n in range(BOSS_EVERY, 90, BOSS_EVERY):
+            # each boss fights on their own turf
+            self.assertEqual(territory(n), home[boss_name(n)], n)
+
+    def test_boss_rotation(self):
+        from ninjavenge.waves import boss_wave
+        self.assertEqual([boss_name(n) for n in (5, 10, 15, 20, 25, 30)],
+                         ["knight", "dino", "kage", "knight", "dino", "kage"])
+        for name in ("knight", "dino", "kage"):
+            self.assertEqual(boss_name(boss_wave(name)), name)
+            self.assertEqual(boss_wave(name, 1), boss_wave(name) + 15)
+        self.assertEqual(build_wave(15, random.Random(0)).label.split(":")[1].split()[0], "Kage")
+
+    def test_kage_fight_is_a_duel(self):
+        for n in (15, 30):
+            self.assertEqual([s.kind for s in build_wave(n, random.Random(0)).spawns], ["boss"])
+        for n in (5, 10, 20):
+            self.assertGreater(len(build_wave(n, random.Random(0)).spawns), 1, "other bosses keep their minions")
 
     def test_music_schedule(self):
-        self.assertEqual([music_for(n) for n in (1, 4, 5, 6, 9, 10, 11, 15, 16)],
+        self.assertEqual([music_for(n) for n in (1, 4, 5, 6, 9, 10, 11, 15, 16, 20, 21)],
                          ["intro", "intro", "knight", "after_knight", "after_knight", "dino", "after_dino",
-                          "knight", "after_knight"])
+                          "kage", "after_kage", "knight", "after_knight"])
 
     def test_every_track_exists(self):
         from ninjavenge import config as C

@@ -8,7 +8,7 @@ from collections import Counter
 
 from . import config as C
 from .assets import Sfx
-from .entities import Bullet, Effects, Kunai, Ninja, make_enemy
+from .entities import Bullet, Effects, Kunai, Ninja, Shuriken, make_enemy
 from .scoring import ScoreKeeper
 from .upgrades import Loadout, run_earnings
 
@@ -22,6 +22,7 @@ class World:
         self.loadout = loadout or Loadout()
         self.player = Ninja(self.assets, x=C.SCREEN_W // 2, lane=0, loadout=self.loadout)
         self.enemies = []
+        self._new_enemies = []
         self.kunais = []
         self.bullets = []
         self.effects = Effects(app.font)
@@ -45,6 +46,14 @@ class World:
         self.kunais.append(Kunai(self.assets, x, y, facing, self.loadout.kunai_speed))
         self.sfx.play("throw")
 
+    def add_enemy(self, enemy):
+        """For enemies created mid-update (Kage's shadow clones)."""
+        self._new_enemies.append(enemy)
+
+    def spawn_shuriken(self, x, y, facing):
+        self.bullets.append(Shuriken(x, y, facing))
+        self.sfx.play("throw")
+
     def spawn_bullet(self, x, y, facing):
         self.bullets.append(Bullet(x, y, facing))
         self.effects.sparks(x, y, (255, 220, 120), 6)
@@ -56,7 +65,7 @@ class World:
 
     @property
     def boss(self):
-        return next((e for e in self.enemies if e.kind == "boss" and e.hittable), None)
+        return next((e for e in self.enemies if e.kind == "boss" and e.show_bar), None)
 
     @property
     def ryo_earned(self):
@@ -185,6 +194,9 @@ class World:
         self.player.update(dt, self)
         for e in self.enemies:
             e.update(dt, self)
+        if self._new_enemies:
+            self.enemies += self._new_enemies
+            self._new_enemies = []
 
         body = self.player.body_rect
         if self.player.alive:
@@ -213,7 +225,7 @@ class World:
                         b.alive = False
                         self.effects.text(e.x, e.y - 190 * e.scale, "RICOCHET!", C.CYAN, size=26)
                         self.emit("ricochet")
-                        e.on_projectile(self)
+                        e.on_ricochet(self)
                         break
             elif self.player.vulnerable and b.rect.colliderect(body):
                 b.alive = False
