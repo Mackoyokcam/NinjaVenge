@@ -75,6 +75,7 @@ class App:
             if not self.running:
                 return
         self.scene.update(dt)
+        self.assets.music.update(dt)
         if self.running:
             self.scene.draw(self.screen)
 

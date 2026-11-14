@@ -2,7 +2,9 @@ import pygame
 
 from .. import config as C
 from ..app import Scene
-from ..ui import Background, Hud
+from ..entities.sprite_utils import anchored_rect
+from ..stages import MEDIEVAL, music_for, territory
+from ..ui import FadingBackground, Hud
 from ..waves import WaveDirector
 from ..world import World
 
@@ -25,13 +27,21 @@ class GameScene(Scene):
         super().__init__(app)
         self.world = World(app, tutorial=self.tutorial, loadout=app.profile.loadout())
         self.director = None if self.tutorial else WaveDirector(rng=rng)
-        self.bg = Background()
+        self.bg = FadingBackground(app.assets, self.stage()[0])
         self.hud = Hud(app)
         self.canvas = pygame.Surface((C.SCREEN_W, C.SCREEN_H)).convert()
         self.buffered = None
         self.banked = False
         pygame.mouse.set_visible(False)
-        app.assets.play_music()
+        app.assets.music.stop()
+        app.assets.music.play(self.stage()[1])
+
+    def stage(self):
+        """(territory, music key) for the current wave."""
+        if not self.director:
+            return MEDIEVAL, "tutorial"
+        n = self.director.number
+        return territory(n), music_for(n)
 
     # ------------------------------------------------------------------ input
     def handle_event(self, event):
@@ -60,16 +70,18 @@ class GameScene(Scene):
         if not p.alive:
             return False
         if action in ("up", "down"):
-            start_y = p.y
-            if not p.try_switch_lane(1 if action == "up" else -1):
+            img = p.current_frame()
+            start = anchored_rect(img, p.x, p.y, p.facing, C.PLAYER_ANCHOR)
+            step = 1 if action == "up" else -1
+            from_lane = p.lane
+            if not p.try_switch_lane(step):
                 return False
             w.emit("switch")
             if p.loadout.shinobi:
-                # smoke bomb: vanish here, reappear in the next lane in another puff
-                w.sfx.play("smoke_bomb")
-                target_y = C.LANE_FLOORS[p.lane + (1 if action == "up" else -1)]
-                for y in (start_y, target_y):
-                    w.effects.smoke_bomb(p.x, y - 65)
+                # instant transmission: flicker out here, flicker in on the next lane
+                w.sfx.play("teleport")
+                end = start.move(0, C.LANE_FLOORS[from_lane + step] - C.LANE_FLOORS[from_lane])
+                w.effects.teleport(img, start, end, arrive_delay=p.switch_time)
             else:
                 w.sfx.play("jump")
         elif action == "attack":
@@ -93,6 +105,10 @@ class GameScene(Scene):
 
     # ------------------------------------------------------------------ update
     def update(self, dt):
+        theme, track = self.stage()
+        self.bg.set_theme(theme)
+        if self.world.player.alive:
+            self.app.assets.music.play(track)
         self.bg.update(dt)
         w = self.world
         w.player.set_move(self.read_movement() if w.player.alive else 0)

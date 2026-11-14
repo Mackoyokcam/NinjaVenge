@@ -64,14 +64,45 @@ class MenuList:
             draw_text(surf, font, label, C.WHITE, center=r.center)
 
 
-class Background:
-    """Night sky, moon, mountains and wooden walkways; clouds drift."""
+VOLCANO_CRATER = (1060, 180)   # where the prehistoric volcano's smoke rises from
+THEMES = ("night", "medieval", "prehistoric")
 
-    def __init__(self, seed=7):
-        rng = random.Random(seed)
-        self.static = pygame.Surface((C.SCREEN_W, C.SCREEN_H)).convert()
-        s = self.static
-        # sky gradient
+
+def torch_spots():
+    """Flame positions at both ends of every lane (they mark where enemies come from)."""
+    return [(x, floor - 66) for floor in C.LANE_FLOORS for x in (18, C.SCREEN_W - 18)]
+
+
+class Background:
+    """The backdrop. 'night' is drawn in code (menus); the two territories use
+    pre-composed images from tools/prepare_backgrounds.py plus a few live touches:
+    clouds, flickering torches, and the volcano's smoke."""
+
+    SMOKE_LIFE = 5.0
+
+    def __init__(self, assets=None, theme="night", seed=7):
+        self.rng = random.Random(seed)
+        self.theme = theme
+        self.t = 0.0
+        self.static = None
+        if theme != "night" and assets is not None:
+            try:
+                self.static = assets.image(f"bg/{theme}.png")
+            except (FileNotFoundError, pygame.error):
+                self.static = None
+        if self.static is None:
+            self.theme = "night"
+            self.static = self._night(self.rng)
+        rng = self.rng
+        self.clouds = [[rng.uniform(0, C.SCREEN_W), rng.uniform(60, 300), rng.uniform(8, 22), rng.uniform(0.6, 1.4)]
+                       for _ in range(6 if self.theme == "night" else 4)]
+        self.smoke = []      # [x, y, radius, life] puffs over the volcano
+        self.embers = []     # [x, y, vx, vy, life]
+
+    # ------------------------------------------------------------ night (menus)
+    @classmethod
+    def _night(cls, rng):
+        s = pygame.Surface((C.SCREEN_W, C.SCREEN_H)).convert()
         top, bottom = (10, 8, 30), (70, 30, 60)
         for y in range(C.SCREEN_H):
             t = y / C.SCREEN_H
@@ -81,11 +112,9 @@ class Background:
             x, y = rng.randrange(C.SCREEN_W), rng.randrange(0, 420)
             b = rng.randrange(120, 255)
             s.set_at((x, y), (b, b, b))
-        # moon
         pygame.draw.circle(s, (255, 235, 200), (1220, 130), 70)
         pygame.draw.circle(s, (240, 210, 170), (1195, 110), 14)
         pygame.draw.circle(s, (240, 210, 170), (1245, 160), 9)
-        # two mountain ranges
         for color, base, amp, step in (((40, 22, 50), 420, 160, 120), ((26, 14, 34), 520, 120, 80)):
             pts = [(0, C.SCREEN_H)]
             x = 0
@@ -94,14 +123,11 @@ class Background:
                 x += step
             pts.append((C.SCREEN_W, C.SCREEN_H))
             pygame.draw.polygon(s, color, pts)
-        # ground
         ground = C.LANE_FLOORS[0]
         pygame.draw.rect(s, (24, 16, 18), (0, ground, C.SCREEN_W, C.SCREEN_H - ground))
-        # walkways
         for floor in C.LANE_FLOORS:
-            self._walkway(s, floor, ground_lane=(floor == ground))
-        self.clouds = [[rng.uniform(0, C.SCREEN_W), rng.uniform(60, 320), rng.uniform(8, 22), rng.uniform(0.6, 1.4)]
-                       for _ in range(6)]
+            cls._walkway(s, floor, ground_lane=(floor == ground))
+        return s
 
     @staticmethod
     def _walkway(s, floor, ground_lane):
@@ -115,23 +141,106 @@ class Background:
         pygame.draw.line(s, edge, (0, floor), (C.SCREEN_W, floor), 2)
         for x in range(0, C.SCREEN_W, 48):
             pygame.draw.line(s, (60, 34, 24), (x, floor + 2), (x, floor + t), 1)
-        # lanterns at both ends mark where enemies come from
-        for x in (18, C.SCREEN_W - 18):
-            pygame.draw.line(s, (60, 40, 30), (x, floor), (x, floor - 60), 3)
-            pygame.draw.circle(s, (255, 120, 40), (x, floor - 66), 9)
-            pygame.draw.circle(s, (255, 200, 120), (x, floor - 66), 4)
+        for x, y in ((18, floor - 66), (C.SCREEN_W - 18, floor - 66)):
+            pygame.draw.line(s, (60, 40, 30), (x, floor), (x, y + 6), 3)
+            pygame.draw.circle(s, (255, 120, 40), (x, y), 9)
+            pygame.draw.circle(s, (255, 200, 120), (x, y), 4)
 
+    # ------------------------------------------------------------ live
     def update(self, dt):
+        self.t += dt
         for c in self.clouds:
             c[0] += c[2] * dt
             if c[0] > C.SCREEN_W + 200:
                 c[0] = -200
+        if self.theme != "prehistoric":
+            return
+        rng = self.rng
+        cx, cy = VOLCANO_CRATER
+        if rng.random() < dt * 5:
+            self.smoke.append([cx + rng.uniform(-30, 30), cy - 6, rng.uniform(10, 16), 0.0])
+        for p in self.smoke:
+            p[3] += dt
+            p[1] -= 34 * dt
+            p[0] += 14 * dt            # the wind takes it east
+            p[2] += 9 * dt
+        self.smoke = [p for p in self.smoke if p[3] < self.SMOKE_LIFE]
+        if rng.random() < dt * 3:
+            self.embers.append([cx + rng.uniform(-30, 30), cy, rng.uniform(-50, 50), rng.uniform(-170, -90), 1.4])
+        for e in self.embers:
+            e[0] += e[2] * dt
+            e[1] += e[3] * dt
+            e[3] += 120 * dt
+            e[4] -= dt
+        self.embers = [e for e in self.embers if e[4] > 0]
 
     def draw(self, surf):
         surf.blit(self.static, (0, 0))
-        for x, y, _, size in self.clouds:
-            for dx, dy, r in ((0, 0, 34), (30, 8, 26), (-30, 8, 24), (60, 14, 18)):
-                pygame.draw.circle(surf, (60, 40, 80), (int(x + dx * size), int(y + dy * size)), int(r * size))
+        if self.theme == "prehistoric":
+            for x, y, r, age in self.smoke:
+                r = int(r)
+                puff = pygame.Surface((r * 2, r * 2), pygame.SRCALPHA)
+                alpha = int(150 * min(1.0, age / 0.4) * (1 - age / self.SMOKE_LIFE))
+                pygame.draw.circle(puff, (110, 92, 98, alpha), (r, r), r)
+                surf.blit(puff, (int(x) - r, int(y) - r))
+            for x, y, _, _, life in self.embers:
+                pygame.draw.circle(surf, (255, 150 if life > 0.6 else 90, 40), (int(x), int(y)), 3)
+        else:
+            color = (60, 40, 80) if self.theme == "night" else (88, 50, 96)
+            for x, y, _, size in self.clouds:
+                for dx, dy, r in ((0, 0, 34), (30, 8, 26), (-30, 8, 24), (60, 14, 18)):
+                    pygame.draw.circle(surf, color, (int(x + dx * size), int(y + dy * size)), int(r * size))
+        if self.theme != "night":
+            self._torches(surf)
+
+    def _torches(self, surf):
+        for i, (x, y) in enumerate(torch_spots()):
+            f = 0.75 + 0.25 * math.sin(self.t * 13 + i * 1.7) * math.sin(self.t * 7.3 + i)
+            pygame.draw.circle(surf, (255, 110, 30), (x, y + 2), round(11 * f))
+            pygame.draw.circle(surf, (255, 190, 70), (x, y + 4), round(7 * f))
+            pygame.draw.circle(surf, (255, 245, 190), (x, y + 6), round(3 * f) + 1)
+
+
+class FadingBackground:
+    """Cross-fades to a new Background when the territory changes."""
+
+    FADE = 1.6
+
+    def __init__(self, assets, theme):
+        self.assets = assets
+        self.current = Background(assets, theme)
+        self.old = None
+        self.fade = 0.0
+        self._layer = None
+
+    @property
+    def theme(self):
+        return self.current.theme
+
+    def set_theme(self, theme):
+        if theme == self.current.theme:
+            return
+        self.old, self.current = self.current, Background(self.assets, theme)
+        self.fade = self.FADE
+
+    def update(self, dt):
+        self.current.update(dt)
+        if self.old:
+            self.old.update(dt)
+            self.fade -= dt
+            if self.fade <= 0:
+                self.old = None
+
+    def draw(self, surf):
+        if not self.old:
+            self.current.draw(surf)
+            return
+        self.old.draw(surf)
+        if self._layer is None:
+            self._layer = pygame.Surface(surf.get_size()).convert()
+        self.current.draw(self._layer)
+        self._layer.set_alpha(int(255 * (1 - self.fade / self.FADE)))
+        surf.blit(self._layer, (0, 0))
 
 
 class Hud:

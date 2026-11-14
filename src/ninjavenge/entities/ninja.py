@@ -229,7 +229,7 @@ class Ninja:
 
     def draw(self, surf):
         if self.teleporting:
-            return  # vanished in a puff of smoke
+            return  # mid-teleport: only the flicker effect is visible
         if self.alive and self.invuln > 0 and self.state != State.HURT and int(self.invuln * 14) % 2:
             return  # blink while invulnerable
         img = self.current_frame()

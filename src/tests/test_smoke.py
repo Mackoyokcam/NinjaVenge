@@ -385,16 +385,92 @@ class SmokeTest(unittest.TestCase):
         robot.on_projectile(w)
         self.assertAlmostEqual(robot.stagger_t, config.ROBOT_STAGGER * 1.5)
 
-    def test_shinobi_smoke_bomb_effect(self):
+    def test_shinobi_teleport_effect(self):
         self.app.profile.levels = {"shinobi": 1}
         game = GameScene(self.app)
         self.app.change(game)
         game.director = None
-        self.assertTrue(game.world.effects._smoke, "smoke sprites should load")
+        fx = game.world.effects
+        y0 = game.world.player.y
         self.app.step(DT, [key(pygame.K_UP)])
-        self.assertGreaterEqual(len(game.world.effects.puffs), 20, "a smoke bomb at each lane")
-        self.run_frames(60)
-        self.assertEqual(game.world.effects.puffs, [])
+        out, arrive = fx.ghosts
+        self.assertEqual((out.mode, arrive.mode), ("out", "in"))
+        self.assertEqual(arrive.rect.bottom - out.rect.bottom, config.LANE_FLOORS[1] - config.LANE_FLOORS[0])
+        self.assertGreater(arrive.delay, 0, "reappears after vanishing")
+        self.assertTrue(fx.streaks)
+        self.run_frames(3)
+        game.draw(self.app.screen)
+        self.run_frames(40)
+        self.assertEqual((fx.ghosts, fx.streaks), ([], []))
+        self.assertEqual(game.world.player.y, config.LANE_FLOORS[1])
+        self.assertNotEqual(y0, game.world.player.y)
+
+    # ------------------------------------------------------------ v5 features
+    def test_dino_tail_swipes_player_behind(self):
+        from ninjavenge.entities import DinoBoss
+        game, w, dino = self._game_with(DinoBoss, hp=10)   # walking left
+        dino.x, dino.charge_cd, dino.tail_cd = w.player.x - 120, 99, 0   # Ren is behind him
+        self.run_frames(2)
+        self.assertEqual(dino.state, "tail")
+        for _ in range(int(60 * config.DINO_TAIL_TIME) + 4):
+            self.app.step(DT, [])
+            game.draw(self.app.screen)            # rotated sprite + swoosh draw fine
+        self.assertEqual(w.hearts, config.PLAYER_MAX_HEARTS - 1)
+        self.assertEqual(dino.state, "walk")
+        self.assertEqual(dino.facing, -1, "Rex never turns around, only his tail does")
+
+    def test_dino_tail_out_of_range_and_interrupt(self):
+        from ninjavenge.entities import DinoBoss
+        game, w, dino = self._game_with(DinoBoss, hp=10)
+        dino.x, dino.charge_cd, dino.tail_cd = w.player.x - config.DINO_TAIL_RANGE - 40, 99, 0
+        self.run_frames(30)
+        self.assertEqual((dino.state, w.hearts), ("walk", config.PLAYER_MAX_HEARTS))
+        # a kunai into the coiling tail interrupts it
+        game, w, dino = self._game_with(DinoBoss, hp=10)
+        dino.x, dino.charge_cd, dino.tail_cd = w.player.x - 120, 99, 0
+        self.run_frames(2)
+        self.assertTrue(dino.tail_winding_up)
+        dino.on_projectile(w)
+        self.assertEqual(dino.state, STAGGER)
+        self.run_frames(40)
+        self.assertEqual(w.hearts, config.PLAYER_MAX_HEARTS)
+
+    def test_territory_scenery_and_music_follow_the_waves(self):
+        game = GameScene(self.app)
+        self.app.change(game)
+        music = self.app.assets.music
+        self.run_frames(2)
+        self.assertEqual((game.bg.theme, music.current), ("medieval", "intro"))
+        d = game.director
+        for n, theme, track in ((5, "medieval", "knight"), (6, "prehistoric", "after_knight"),
+                                (10, "prehistoric", "dino"), (11, "medieval", "after_dino")):
+            d.number = n - 1
+            d._next_wave()
+            self.run_frames(2)
+            self.assertEqual((game.bg.theme, music.current), (theme, track), n)
+        self.assertIsNotNone(game.bg.old, "scenery cross-fades")
+        game.draw(self.app.screen)
+        self.run_frames(int(60 * game.bg.FADE) + 2)
+        self.assertIsNone(game.bg.old)
+        game.world.hearts = 1
+        game.world._lose_hearts(1)
+        self.assertIsNone(music.current, "music stops on death")
+
+    def test_backgrounds_load_and_animate(self):
+        from ninjavenge.ui import Background
+        for theme in ("medieval", "prehistoric"):
+            bg = Background(self.app.assets, theme)
+            self.assertEqual(bg.theme, theme, "pre-composed backdrop should exist in data/bg")
+            for _ in range(120):
+                bg.update(DT)
+            bg.draw(self.app.screen)
+        self.assertTrue(bg.smoke, "the volcano smokes")
+        self.assertEqual(Background(self.app.assets, "nope").theme, "night")
+
+    def test_tutorial_plays_its_own_music(self):
+        self.app.change(TutorialScene(self.app))
+        self.run_frames(2)
+        self.assertEqual(self.app.assets.music.current, "tutorial")
 
     def test_shop_grid_navigation(self):
         from ninjavenge.scenes.shop import ShopScene

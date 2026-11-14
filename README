@@ -6,8 +6,8 @@ Cowboys, robots and jack-o-lanterns raided your home and now travel its roads.
 Stop them: every enemy that slips past costs you a heart.
 
 Original version: 4/27/2016, Mark D Hangarter.
-Version 2 (2026): rewrite with wave-based play, enemy attacks, combos, a boss,
-and a restructured codebase. The PDF in "Game Manual" describes version 1.
+Version 2 (2026): rewrite with wave-based play, enemy attacks, combos, bosses,
+a Dojo Shop, two territories with their own music, and a restructured codebase. The PDF in "Game Manual" describes version 1.
 
 
 Running
@@ -38,7 +38,19 @@ Enemies
                  Sir Clank turns around and swings if you stand close behind him.
                  After a stagger he glows gold for 1.5s: kunai glance off ("IMMUNE"),
                  but a kunai during his wind-up still interrupts him.
+                 Rex can't turn around, but whips his tail at anyone close behind him.
                  A boss that gets through costs 3 hearts.
+
+Territories and music
+---------------------
+Waves 1-5 are Sir Clank's medieval lands (castle at dusk), waves 6-10 are Rex's
+prehistoric jungle (smoking volcano), and they keep alternating. The scenery
+cross-fades when you cross into the next territory.
+Music: one ninja theme for the opening waves, a different one for the rounds
+after each boss, and each boss fight has its own track (medieval battle for
+Sir Clank, tribal war drums for Rex). The tutorial keeps the original theme.
+Tracks and volumes are listed in config.MUSIC; the schedule is in stages.py.
+
 
 Chain kills without losing a heart to raise the score multiplier (up to x5).
 Air kills, deflected bullets and smashed pumpkins earn bonus points.
@@ -58,7 +70,7 @@ Ryo is banked when a run ends and spent in the Dojo Shop (main menu or game over
     Swift Blade       shorter pause between katana swings (3 levels; level 3 removes it)
     Fleet Feet        run 10% faster per level (3 levels)
     Extra Heart       +1 max heart per level (2 levels)
-    Shinobi Mode      smoke-bomb between lanes instead of jumping (toggle on/off in the shop)
+    Shinobi Mode      teleport between lanes in a flash instead of jumping (toggle on/off in the shop)
 Progress is saved to ~/.ninjavenge/profile.json. Prices and rates live in
 ninjavenge/upgrades.py and ninjavenge/config.py.
 
@@ -72,6 +84,7 @@ Code layout (src/)
     ninjavenge/animation.py time-based animation
     ninjavenge/world.py     in-play state and the rules connecting entities
     ninjavenge/waves.py     wave definitions + WaveDirector (pure logic)
+    ninjavenge/stages.py    which territory/music each wave gets (pure logic)
     ninjavenge/scoring.py   score and combo multiplier (pure logic)
     ninjavenge/highscore.py persistent high-score table
     ninjavenge/upgrades.py  shop upgrades, Loadout, ryo earnings (pure logic)
@@ -82,13 +95,14 @@ Code layout (src/)
     tests/                  unit + headless integration tests
 
 
-Boss art
---------
-The boss sprites are pzUH's CC0 GameArt2D packs; the smoke bomb uses Kenney's CC0
-smoke and dklon's CC-BY "Poof Noises" (see CREDITS). To regenerate the game files
-from the original zips:
+Art, music and tools
+--------------------
+Third-party art and music are listed with their licenses in CREDITS. To regenerate
+the game files from the original downloads:
     python tools/prepare_boss_art.py <FreeKnight/png> <FreeDinoSprite/png>
-    python tools/prepare_fx.py <smokeParticleAssets/PNG> <poofs>
+    python tools/prepare_backgrounds.py <Background Elements Redux> <Jungle Pack>
+    python tools/make_teleport_sound.py        (synthesized, no inputs)
+The music files in src/data/music/ are used unmodified.
 
 
 Tests

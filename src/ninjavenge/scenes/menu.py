@@ -22,7 +22,7 @@ class MenuScene(Scene):
         self.ninja = Animation(app.assets.animation("ninja/right/idle"), 1.0)
         self.best = highscore.best()
         pygame.mouse.set_visible(True)
-        app.assets.stop_music()
+        app.assets.music.stop()
 
     def start(self):
         from .game import GameScene

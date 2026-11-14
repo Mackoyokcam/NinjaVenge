@@ -29,7 +29,7 @@ UPGRADES = [
     Upgrade("swift_blade", "Swift Blade", "Shorter pause between katana swings.", (50, 100, 200)),
     Upgrade("fleet_feet", "Fleet Feet", "Run 10% faster per level.", (40, 90, 180)),
     Upgrade("hearts", "Extra Heart", "+1 maximum heart per level.", (100, 250)),
-    Upgrade("shinobi", "Shinobi Mode", "Smoke-bomb between lanes. No jump attacks.", (150,), toggle=True),
+    Upgrade("shinobi", "Shinobi Mode", "Teleport between lanes in a flash. No jump attacks.", (150,), toggle=True),
 ]
 BY_KEY = {u.key: u for u in UPGRADES}
 

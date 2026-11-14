@@ -24,33 +24,33 @@ class FloatText:
         self.life = self.max_life = life
 
 
-class Puff:
-    __slots__ = ("x", "y", "vx", "vy", "image", "life", "max_life", "start", "end", "delay")
+class Ghost:
+    """A flickering, squashed copy of the ninja: 'out' shrinks to a line, 'in' grows from one."""
+    __slots__ = ("image", "rect", "mode", "life", "max_life", "delay")
 
-    def __init__(self, x, y, vx, vy, image, life, start, end, delay=0.0):
-        self.x, self.y, self.vx, self.vy, self.image = x, y, vx, vy, image
+    def __init__(self, image, rect, mode, life, delay=0.0):
+        self.image, self.rect, self.mode = image, rect, mode
         self.life = self.max_life = life
-        self.start, self.end, self.delay = start, end, delay
+        self.delay = delay
+
+
+class Streak:
+    """A vertical speed line left by a teleport."""
+    __slots__ = ("x", "top", "bottom", "life", "max_life", "delay")
+
+    def __init__(self, x, top, bottom, life, delay=0.0):
+        self.x, self.top, self.bottom = x, top, bottom
+        self.life = self.max_life = life
+        self.delay = delay
 
 
 class Effects:
-    def __init__(self, font_factory, assets=None):
+    def __init__(self, font_factory):
         self.font = font_factory
         self.particles = []
         self.texts = []
-        self.puffs = []
-        self._smoke = self._flash = None
-        if assets is not None:
-            try:
-                grey = []
-                for i in range(8):
-                    img = assets.image(f"fx/smoke_{i:02d}.png").copy()
-                    img.fill((165, 160, 180), special_flags=pygame.BLEND_RGB_MULT)   # ninja-grey smoke
-                    grey.append(img)
-                self._smoke = grey
-                self._flash = assets.image("fx/flash.png")
-            except (FileNotFoundError, pygame.error):
-                pass   # fall back to particle smoke
+        self.ghosts = []
+        self.streaks = []
 
     def burst(self, x, y, color, n=14, speed=320, size=4, life=0.5):
         for _ in range(n):
@@ -62,22 +62,19 @@ class Effects:
     def sparks(self, x, y, color, n=8):
         self.burst(x, y, color, n=n, speed=420, size=3, life=0.25)
 
-    def smoke_bomb(self, x, y):
-        """A smoke bomb going off: quick flash, then billowing grey puffs."""
-        if not self._smoke:
-            self.burst(x, y, (190, 190, 210), n=16, speed=180, size=7, life=0.35)
-            return
-        self.puffs.append(Puff(x, y, 0, 0, self._flash, 0.12, 0.4, 1.1))
-        for i in range(12):
-            a = random.uniform(0, 2 * math.pi)
-            r = random.uniform(8, 30)
-            img = random.choice(self._smoke)
-            if random.random() < 0.5:
-                img = pygame.transform.flip(img, True, False)
-            self.puffs.append(Puff(x + math.cos(a) * r, y + math.sin(a) * r * 0.7,
-                                   math.cos(a) * random.uniform(40, 110), math.sin(a) * 60 - random.uniform(20, 60),
-                                   img, random.uniform(0.5, 0.8), random.uniform(0.3, 0.45),
-                                   random.uniform(1.0, 1.45), delay=random.uniform(0, 0.05)))
+    def teleport(self, image, start, end, arrive_delay=0.08):
+        """Instant transmission: vanish from `start` (a rect), reappear at `end`."""
+        glow = image.copy()
+        glow.fill((110, 190, 255), special_flags=pygame.BLEND_RGB_ADD)
+        self.ghosts.append(Ghost(glow, start, "out", 0.16))
+        self.ghosts.append(Ghost(glow, end, "in", 0.14, delay=max(0.0, arrive_delay - 0.03)))
+        for rect, delay in ((start, 0.0), (end, arrive_delay)):
+            for _ in range(5):
+                x = rect.centerx + random.uniform(-0.35, 0.35) * rect.width
+                h = random.uniform(0.6, 1.3) * rect.height
+                top = rect.centery - h / 2 + random.uniform(-20, 20)
+                self.streaks.append(Streak(x, top, top + h, random.uniform(0.12, 0.22), delay + random.uniform(0, 0.04)))
+        self.sparks(start.centerx, start.centery, (170, 225, 255), 6)
 
     def text(self, x, y, text, color, size=30, life=0.9):
         font = self.font(size)
@@ -100,28 +97,32 @@ class Effects:
             t.life -= dt
             t.y -= 60 * dt
         self.texts = [t for t in self.texts if t.life > 0]
-        for p in self.puffs:
-            if p.delay > 0:
-                p.delay -= dt
-                continue
-            p.life -= dt
-            p.x += p.vx * dt
-            p.y += p.vy * dt
-            p.vx *= 0.92
-            p.vy *= 0.92
-        self.puffs = [p for p in self.puffs if p.life > 0]
+        for g in self.ghosts + self.streaks:
+            if g.delay > 0:
+                g.delay -= dt
+            else:
+                g.life -= dt
+        self.ghosts = [g for g in self.ghosts if g.life > 0]
+        self.streaks = [g for g in self.streaks if g.life > 0]
 
     def draw(self, surf):
-        for p in self.puffs:
-            if p.delay > 0:
+        for st in self.streaks:
+            if st.delay > 0:
                 continue
-            t = 1 - p.life / p.max_life                    # 0 -> 1 over the puff's life
-            grow = 1 - (1 - t) ** 3                        # fast billow, slow settle
-            scale = p.start + (p.end - p.start) * grow
-            w, h = p.image.get_size()
-            img = pygame.transform.smoothscale(p.image, (max(1, int(w * scale)), max(1, int(h * scale))))
-            img.set_alpha(int(255 * (1 - t) ** 1.5))
-            surf.blit(img, img.get_rect(center=(round(p.x), round(p.y))))
+            k = st.life / st.max_life
+            col = (int(150 + 105 * k), int(210 + 45 * k), 255)
+            pygame.draw.line(surf, col, (round(st.x), round(st.top)), (round(st.x), round(st.bottom)), 2 if k > 0.5 else 1)
+        for g in self.ghosts:
+            if g.delay > 0:
+                continue
+            t = 1 - g.life / g.max_life                     # 0 -> 1
+            grow = t if g.mode == "in" else 1 - t           # 1 = full width
+            if int(t * 30) % 3 == 2:
+                continue                                     # flicker
+            w, h = g.image.get_size()
+            img = pygame.transform.scale(g.image, (max(2, round(w * grow)), round(h * (1.35 - 0.35 * grow))))
+            img.set_alpha(int(110 + 145 * grow) if g.mode == "out" else int(240 * (1 - t)))   # 'in' fades into Ren
+            surf.blit(img, img.get_rect(midbottom=g.rect.midbottom))
         self._draw_particles(surf)
 
     def _draw_particles(self, surf):

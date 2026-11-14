@@ -7,6 +7,7 @@ import unittest
 from ninjavenge import highscore
 from ninjavenge.animation import Animation
 from ninjavenge.scoring import ScoreKeeper
+from ninjavenge.stages import MEDIEVAL, PREHISTORIC, boss_name, music_for, territory
 from ninjavenge.waves import BOSS_EVERY, WaveDirector, build_wave
 
 
@@ -178,6 +179,27 @@ class ProfileTest(unittest.TestCase):
         with open(self.path, "w") as f:
             f.write("[1, 2")
         self.assertEqual(Profile(self.path).ryo, 0)
+
+
+
+class StagesTest(unittest.TestCase):
+    def test_territories_alternate_with_their_boss(self):
+        self.assertEqual([territory(n) for n in (1, 5, 6, 10, 11, 15, 16)],
+                         [MEDIEVAL, MEDIEVAL, PREHISTORIC, PREHISTORIC, MEDIEVAL, MEDIEVAL, PREHISTORIC])
+        for n in range(BOSS_EVERY, 60, BOSS_EVERY):
+            # each boss fights on his own turf
+            self.assertEqual(territory(n), MEDIEVAL if boss_name(n) == "knight" else PREHISTORIC, n)
+
+    def test_music_schedule(self):
+        self.assertEqual([music_for(n) for n in (1, 4, 5, 6, 9, 10, 11, 15, 16)],
+                         ["intro", "intro", "knight", "after_knight", "after_knight", "dino", "after_dino",
+                          "knight", "after_knight"])
+
+    def test_every_track_exists(self):
+        from ninjavenge import config as C
+        for key, (name, volume) in C.MUSIC.items():
+            self.assertTrue(os.path.exists(os.path.join(C.DATA_DIR, name)), name)
+            self.assertTrue(0 < volume <= 1, key)
 
 
 if __name__ == "__main__":

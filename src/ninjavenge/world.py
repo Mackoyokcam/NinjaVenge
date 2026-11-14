@@ -24,7 +24,7 @@ class World:
         self.enemies = []
         self.kunais = []
         self.bullets = []
-        self.effects = Effects(app.font, app.assets)
+        self.effects = Effects(app.font)
         self.score = ScoreKeeper()
         self.hearts = self.loadout.max_hearts
         self.kills = 0
@@ -168,7 +168,7 @@ class World:
         if self.hearts == 0 and self.player.alive:
             self.player.die()
             self.sfx.play("game_over")
-            self.assets.stop_music()
+            self.assets.music.stop()
             for e in self.enemies:
                 e.speed = 0
 

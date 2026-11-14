@@ -28,6 +28,7 @@ class Assets:
         self._animations = {}
         self._sounds = {}
         self.audio = bool(pygame.mixer and pygame.mixer.get_init())
+        self.music = Music(self)
 
     def path(self, *parts):
         return os.path.join(self.data_dir, *parts)
@@ -76,24 +77,6 @@ class Assets:
     def play(self, name):
         self.sound(name).play()
 
-    def play_music(self, name="ninja.mp3", loops=-1):
-        if not self.audio:
-            return
-        pygame.mixer.music.load(self.path(name))
-        pygame.mixer.music.set_volume(0.5)
-        pygame.mixer.music.play(loops)
-
-    def stop_music(self):
-        if self.audio:
-            pygame.mixer.music.stop()
-
-    def pause_music(self):
-        if self.audio:
-            pygame.mixer.music.pause()
-
-    def resume_music(self):
-        if self.audio:
-            pygame.mixer.music.unpause()
 
 
 SOUND_FILES = {
@@ -107,8 +90,62 @@ SOUND_FILES = {
     "game_over": "game_over.wav",
     "ugh": "ugh.wav",
     "laugh": "laugh.ogg",
-    "smoke_bomb": "smoke_bomb.wav",
+    "teleport": "teleport.wav",
 }
+
+
+class Music:
+    """One looping track at a time (keys from config.MUSIC), fading between tracks."""
+
+    def __init__(self, assets):
+        self.assets = assets
+        self.current = None      # the track asked for (tracked even without audio, for tests)
+        self._fade_out = 0.0
+        self.paused = False
+
+    def play(self, key):
+        if key == self.current:
+            return
+        self.current = key
+        if not self.assets.audio:
+            return
+        if pygame.mixer.music.get_busy():
+            pygame.mixer.music.fadeout(int(config.MUSIC_FADE * 1000))   # non-blocking in pygame 2
+            self._fade_out = config.MUSIC_FADE
+        else:
+            self._start()
+
+    def update(self, dt):
+        if self._fade_out > 0 and not self.paused:
+            self._fade_out -= dt
+            if self._fade_out <= 0:
+                self._start()
+
+    def _start(self):
+        name, volume = config.MUSIC[self.current]
+        try:
+            pygame.mixer.music.load(self.assets.path(name))
+            pygame.mixer.music.set_volume(volume)
+            pygame.mixer.music.play(-1, fade_ms=500)
+        except pygame.error:
+            pass   # a missing track shouldn't stop the game
+
+    def stop(self):
+        self.current = None
+        self._fade_out = 0.0
+        self.paused = False
+        if self.assets.audio:
+            pygame.mixer.music.stop()
+
+    def pause(self):
+        self.paused = True
+        if self.assets.audio:
+            pygame.mixer.music.pause()
+
+    def resume(self):
+        self.paused = False
+        if self.assets.audio:
+            pygame.mixer.music.unpause()
 
 
 class Sfx:

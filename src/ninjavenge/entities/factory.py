@@ -1,12 +1,12 @@
 from .. import config as C
-from ..waves import BOSS_EVERY
+from ..stages import boss_name
 from .bosses import DinoBoss, KnightBoss
 from .enemies import Cowboy, Jack, Robot
 
 
 def boss_class(wave_number):
     """Bosses alternate: knight on waves 5, 15, 25...; dino on 10, 20, 30..."""
-    return KnightBoss if (wave_number // BOSS_EVERY) % 2 == 1 else DinoBoss
+    return KnightBoss if boss_name(wave_number) == "knight" else DinoBoss
 
 
 def make_enemy(assets, spawn, wave):

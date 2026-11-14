@@ -74,6 +74,22 @@ DINO_CHARGE_COOLDOWN = (3.5, 5.0)
 DINO_WINDUP = 0.8
 DINO_CHARGE_TIME = 1.1
 DINO_CHARGE_SPEED = 420
+DINO_TAIL_RANGE = 190          # Rex swipes his tail at Ren standing this close behind him
+DINO_TAIL_TIME = 0.75
+DINO_TAIL_SWING = (0.4, 0.62)  # fraction of the swipe when the tail can hit
+DINO_TAIL_REACH = (180, 110)
+DINO_TAIL_COOLDOWN = (1.4, 2.2)
+
+# Music: key -> (file in data/, volume). Volumes even out the tracks' loudness.
+MUSIC = {
+    "tutorial": ("ninja.mp3", 0.5),
+    "intro": ("music/blackmoor_ninjas.mp3", 0.45),       # waves 1-4
+    "after_knight": ("music/samurai.mp3", 0.8),           # rounds after beating Sir Clank
+    "after_dino": ("music/the_shogun.ogg", 0.3),          # rounds after beating Rex
+    "knight": ("music/medieval_battle.mp3", 0.55),        # Sir Clank's boss fight
+    "dino": ("music/drums_in_the_deepwood.mp3", 0.32),    # Rex's boss fight
+}
+MUSIC_FADE = 0.8
 CORPSE_FADE = 1.2
 
 # --- Scoring --------------------------------------------------------------------

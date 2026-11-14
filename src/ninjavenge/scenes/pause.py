@@ -17,12 +17,12 @@ class PauseScene(Scene):
             ("Main Menu", self.main_menu),
             ("Quit", app.quit),
         ], C.SCREEN_W // 2, 320)
-        app.assets.pause_music()
+        app.assets.music.pause()
         pygame.mouse.set_visible(True)
 
     def resume(self):
         self.app.pop()
-        self.app.assets.resume_music()
+        self.app.assets.music.resume()
         pygame.mouse.set_visible(False)
 
     def restart(self):

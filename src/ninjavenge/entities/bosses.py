@@ -3,6 +3,7 @@
 Shared rule: every boss telegraphs its big attack, and a kunai thrown during
 the telegraph interrupts it and staggers the boss.
 """
+import math
 import random
 
 import pygame
@@ -10,8 +11,9 @@ import pygame
 from .. import config as C
 from ..animation import Animation
 from .enemies import STAGGER, WALK, Enemy, Robot
+from .sprite_utils import tinted
 
-ATTACK, WINDUP, CHARGE = "attack", "windup", "charge"
+ATTACK, WINDUP, CHARGE, TAIL = "attack", "windup", "charge", "tail"
 
 
 def _draw_alert(surf, x, top, t):
@@ -149,7 +151,8 @@ class KnightBoss(_BossMixin, Robot):
 
 
 class DinoBoss(_BossMixin, Enemy):
-    """Not armored, but tough. Stops, shakes, then charges down the lane."""
+    """Not armored, but tough. Stops, shakes, then charges down the lane.
+    Lurking close behind him earns a tail swipe."""
     title = "REX"
     folder = "boss/dino"
     run_time = 0.9
@@ -158,24 +161,66 @@ class DinoBoss(_BossMixin, Enemy):
         super().__init__(assets, lane, side, C.DINO_SPEED, hp)
         self.charge_anim = Animation(assets.animation(f"{self.folder}/charge"), 0.45)
         self.charge_cd = random.uniform(*C.DINO_CHARGE_COOLDOWN) * 0.5
+        self.tail_cd = 0.8
         self.timer = 0.0
+        self._struck = False
 
     @property
     def hittable(self):
-        return self.state in (WALK, STAGGER, WINDUP, CHARGE)
+        return self.state in (WALK, STAGGER, WINDUP, CHARGE, TAIL)
 
     @property
     def counts_for_wave(self):
-        return super().counts_for_wave or self.state in (WINDUP, CHARGE)
+        return super().counts_for_wave or self.state in (WINDUP, CHARGE, TAIL)
+
+    @property
+    def tail_progress(self):
+        return 1 - self.timer / C.DINO_TAIL_TIME if self.state == TAIL else 0.0
+
+    @property
+    def tail_winding_up(self):
+        return self.state == TAIL and self.tail_progress < C.DINO_TAIL_SWING[0]
+
+    @property
+    def tail_rect(self):
+        w, h = C.DINO_TAIL_REACH
+        r = pygame.Rect(0, 0, w, h)
+        r.bottom = round(self.y) - 10
+        if self.facing > 0:
+            r.right = round(self.x) - 10
+        else:
+            r.left = round(self.x) + 10
+        return r
 
     def think(self, dt, world):
         self.charge_cd -= dt
+        self.tail_cd -= dt
+        if self.tail_cd <= 0 and self._player_behind(world, C.DINO_TAIL_RANGE):
+            self.state = TAIL
+            self.timer = C.DINO_TAIL_TIME
+            self._struck = False
+            return
         on_screen = 120 < self.x < C.SCREEN_W - 120
         if self.charge_cd <= 0 and on_screen and self._player_ahead(world, C.SCREEN_W):
             self.state = WINDUP
             self.timer = C.DINO_WINDUP
 
     def update(self, dt, world):
+        if self.state == TAIL:
+            self.flash = max(0.0, self.flash - dt)
+            was_winding = self.tail_winding_up
+            self.timer -= dt
+            lo, hi = C.DINO_TAIL_SWING
+            if was_winding and not self.tail_winding_up:
+                world.sfx.play("attack")       # whoosh
+            if not self._struck and lo <= self.tail_progress <= hi:
+                if world.player.body_rect.colliderect(self.tail_rect):
+                    self._struck = True
+                    world.damage_player(self.x)
+            if self.timer <= 0:
+                self.state = WALK
+                self.tail_cd = random.uniform(*C.DINO_TAIL_COOLDOWN)
+            return
         if self.state == WINDUP:
             self.flash = max(0.0, self.flash - dt)
             self.timer -= dt
@@ -200,6 +245,9 @@ class DinoBoss(_BossMixin, Enemy):
         if self.state == WINDUP:
             self._interrupt(world)
             self.charge_cd = random.uniform(*C.DINO_CHARGE_COOLDOWN)
+        elif self.tail_winding_up:
+            self._interrupt(world)
+            self.tail_cd = random.uniform(*C.DINO_TAIL_COOLDOWN)
         else:
             super().on_projectile(world)
 
@@ -215,11 +263,24 @@ class DinoBoss(_BossMixin, Enemy):
     def frame(self):
         if self.state == CHARGE:
             return self.charge_anim.frame(self.facing)
-        if self.state == WINDUP:
+        if self.state in (WINDUP, TAIL):
             return self.run.right[0] if self.facing > 0 else self.run.left[0]
         return super().frame()
 
+    def tail_angle(self):
+        """Body tilt in degrees (positive = nose up) for the swipe: coil, whip, settle."""
+        t, (lo, hi) = self.tail_progress, C.DINO_TAIL_SWING
+        if t < lo:
+            return 9 * math.sin(t / lo * math.pi / 2)          # rear back, tail down
+        if t < hi:
+            k = (t - lo) / (hi - lo)
+            return 10 - 38 * math.sin(k * math.pi / 2)        # nose dips, tail whips up
+        return -28 * (1 - (t - hi) / (1 - hi))               # settle back
+
     def draw(self, surf):
+        if self.state == TAIL:
+            self._draw_tail(surf)
+            return
         if self.state == WINDUP:
             # shake in place while winding up
             ox = random.randint(-3, 3)
@@ -228,6 +289,43 @@ class DinoBoss(_BossMixin, Enemy):
             self.x -= ox
         else:
             super().draw(surf)
+
+    def _draw_tail(self, surf):
+        img = self.frame()
+        if self.flash > 0:
+            img = tinted(img, (180, 180, 180), "add")
+        angle = self.tail_angle() * self.facing
+        rot = pygame.transform.rotate(img, angle)
+        lunge = -self.facing * 14 * max(0.0, -self.tail_angle()) / 28   # hips shove back into the swipe
+        base = img.get_rect(midbottom=(round(self.x + lunge), round(self.y + self.foot_pad)))
+        surf.blit(rot, rot.get_rect(center=base.center))
+        lo, hi = C.DINO_TAIL_SWING
+        t = self.tail_progress
+        if lo <= t <= hi + 0.12:
+            self._draw_swoosh(surf, (t - lo) / (hi + 0.12 - lo))
+        if self.tail_winding_up:
+            _draw_alert(surf, self.x - self.facing * 70, base.top + 30, self.timer)
+
+    def _draw_swoosh(self, surf, k):
+        """White arc sweeping up behind Rex where the tail whips through."""
+        cx, cy = self.x - self.facing * 30, self.y - 90      # Rex's hip
+        radius = C.DINO_TAIL_REACH[0] - 30
+        layer = pygame.Surface((radius * 2 + 20, radius * 2 + 20), pygame.SRCALPHA)
+        c = radius + 10
+        start, sweep = math.radians(215), math.radians(105) * min(1.0, k * 1.6)
+        pts_out, pts_in = [], []
+        for i in range(13):
+            a = start - sweep * i / 12
+            width = 44 * math.sin(math.pi * i / 12)
+            pts_out.append((c + math.cos(a) * radius, c - math.sin(a) * radius))
+            pts_in.append((c + math.cos(a) * (radius - width), c - math.sin(a) * (radius - width)))
+        alpha = int(220 * (1 - max(0.0, k - 0.6) / 0.4))
+        if len(pts_out) > 2:
+            pygame.draw.polygon(layer, (255, 245, 220, alpha), pts_out + pts_in[::-1])
+            pygame.draw.lines(layer, (255, 255, 255, alpha), False, pts_out, 3)
+        if self.facing < 0:
+            layer = pygame.transform.flip(layer, True, False)
+        surf.blit(layer, (round(cx) - c, round(cy) - c))
 
     def draw_overlay(self, surf, rect):
         if self.state == WINDUP:
